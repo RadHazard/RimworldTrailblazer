@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+    <name>Trailblazer: Enhanced Pathfinding</name>
+    <author>Pausbrak</author>
+    <packageId>Pausbrak.Trailblazer</packageId>
+    <url>https://github.com/RadHazard/RimworldTrailblazer</url>
+    <supportedVersions>
+        <li>1.2</li>
+    </supportedVersions>
+    <description>Enhanced pathfinding for Rimworld</description>
+</ModMetaData>
