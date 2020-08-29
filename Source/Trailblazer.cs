@@ -13,7 +13,6 @@ namespace Trailblazer
         internal struct CostNode
         {
             public int index;
-
             public int cost;
 
             public CostNode(int index, int cost)
@@ -26,13 +25,9 @@ namespace Trailblazer
         private struct PathFinderNodeFast
         {
             public int knownCost;
-
             public int heuristicCost;
-
             public int parentIndex;
-
             public int costNodeCost;
-
             public ushort status;
         }
 
@@ -44,7 +39,15 @@ namespace Trailblazer
             }
         }
 
-        private Map map;
+        private readonly Map map;
+
+        private readonly int mapSizeX;
+        private readonly int mapSizeZ;
+
+        private readonly CellIndices cellIndices;
+        private readonly EdificeGrid edificeGrid;
+        private readonly BlueprintGrid blueprintGrid;
+        private readonly PathGrid pathGrid;
 
         private FastPriorityQueue<CostNode> openList;
 
@@ -56,27 +59,7 @@ namespace Trailblazer
 
         private RegionCostCalculatorWrapper regionCostCalculator;
 
-        private int mapSizeX;
-
-        private int mapSizeZ;
-
-        private PathGrid pathGrid;
-
-        private Building[] edificeGrid;
-
-        private List<Blueprint>[] blueprintGrid;
-
-        private CellIndices cellIndices;
-
-        private List<int> disallowedCornerIndices = new List<int>(4);
-
-        public const int DefaultMoveTicksCardinal = 13;
-
-        private const int DefaultMoveTicksDiagonal = 18;
-
-        private const int SearchLimit = 160000;
-
-        private static readonly int[] Directions = new int[16] {
+        private static readonly int[] Directions = {
             0,
             1,
             0,
@@ -95,24 +78,15 @@ namespace Trailblazer
             -1
         };
 
-        private const int Cost_DoorToBash = 300;
-
+        private const int SearchLimit = 160000;
+        private const int DefaultMoveTicksCardinal = 13;
+        private const int DefaultMoveTicksDiagonal = 18;
         private const int Cost_BlockedWallBase = 70;
-
         private const float Cost_BlockedWallExtraPerHitPoint = 0.2f;
-
-        private const int Cost_BlockedDoor = 50;
-
-        private const float Cost_BlockedDoorPerHitPoint = 0.2f;
-
-        public const int Cost_OutsideAllowedArea = 600;
-
+        private const int Cost_OutsideAllowedArea = 600;
         private const int Cost_PawnCollision = 175;
-
         private const int NodesToOpenBeforeRegionBasedPathing_NonColonist = 2000;
-
         private const int NodesToOpenBeforeRegionBasedPathing_Colonist = 100000;
-
         private const float NonRegionBasedHeuristicStrengthAnimal = 1.75f;
 
         private static readonly SimpleCurve NonRegionBasedHeuristicStrengthHuman_DistanceCurve = new SimpleCurve {
@@ -154,15 +128,29 @@ namespace Trailblazer
             this.map = map;
             mapSizeX = map.Size.x;
             mapSizeZ = map.Size.z;
-            int num = mapSizeX * mapSizeZ;
-            if (calcGrid == null || calcGrid.Length < num)
+            int mapSquares = mapSizeX * mapSizeZ;
+            if (calcGrid == null || calcGrid.Length < mapSquares)
             {
-                calcGrid = new PathFinderNodeFast[num];
+                calcGrid = new PathFinderNodeFast[mapSquares];
             }
             openList = new FastPriorityQueue<CostNode>(new CostNodeComparer());
             regionCostCalculator = new RegionCostCalculatorWrapper(map);
+
+            cellIndices = map.cellIndices;
+            edificeGrid = map.edificeGrid;
+            blueprintGrid = map.blueprintGrid;
+            pathGrid = map.pathGrid;
         }
 
+        /// <summary>
+        /// Stub that replaces the vanilla pathfind method Performs error checking, then calls the implementation in
+        /// PathFind_Internal
+        /// </summary>
+        /// <returns>The path.</returns>
+        /// <param name="start">Start.</param>
+        /// <param name="dest">Destination.</param>
+        /// <param name="traverseParms">Traverse parms.</param>
+        /// <param name="peMode">Path end mode.</param>
         public new PawnPath FindPath(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode = PathEndMode.OnCell)
         {
             if (DebugSettings.pathThroughWalls)
@@ -196,66 +184,76 @@ namespace Trailblazer
             {
                 return PawnPath.NotFound;
             }
+
+            return FindPath_Internal(start, dest, traverseParms, peMode);
+        }
+
+        /// <summary>
+        /// Actual implementation of the pathfinder
+        /// TODO
+        /// </summary>
+        /// <returns>The path.</returns>
+        /// <param name="start">Start.</param>
+        /// <param name="dest">Destination.</param>
+        /// <param name="traverseParms">Traverse parms.</param>
+        /// <param name="peMode">Path end mode.</param>
+        protected PawnPath FindPath_Internal(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode)
+        {
             //PfProfilerBeginSample("FindPath for " + pawn + " from " + start + " to " + dest + (dest.HasThing ? (" at " + dest.Cell) : "")); //TODO
-            cellIndices = map.cellIndices;
-            pathGrid = map.pathGrid;
-            this.edificeGrid = map.edificeGrid.InnerArray;
-            blueprintGrid = map.blueprintGrid.InnerArray;
-            int x = dest.Cell.x;
-            int z = dest.Cell.z;
+            Pawn pawn = traverseParms.pawn;
+            int destX = dest.Cell.x;
+            int destZ = dest.Cell.z;
             int curIndex = cellIndices.CellToIndex(start);
             int num = cellIndices.CellToIndex(dest.Cell);
-            ByteGrid byteGrid = (pawn != null) ? pawn.GetAvoidGrid(true) : null;
-            bool flag = traverseParms.mode == TraverseMode.PassAllDestroyableThings || traverseParms.mode == TraverseMode.PassAllDestroyableThingsNotWater;
-            bool flag2 = traverseParms.mode != TraverseMode.NoPassClosedDoorsOrWater && traverseParms.mode != TraverseMode.PassAllDestroyableThingsNotWater;
-            bool flag3 = !flag;
+            ByteGrid avoidGrid = pawn?.GetAvoidGrid(true);
+
+            bool passDestroyableThings = traverseParms.mode == TraverseMode.PassAllDestroyableThings || traverseParms.mode == TraverseMode.PassAllDestroyableThingsNotWater;
+            bool passWater = traverseParms.mode != TraverseMode.NoPassClosedDoorsOrWater && traverseParms.mode != TraverseMode.PassAllDestroyableThingsNotWater;
+            bool dontPassDestroyableThings = !passDestroyableThings;
             CellRect cellRect = CalculateDestinationRect(dest, peMode);
-            bool flag4 = cellRect.Width == 1 && cellRect.Height == 1;
-            int[] array = map.pathGrid.pathGrid;
+            bool destinationIsSingleCell = cellRect.Width == 1 && cellRect.Height == 1;
+
+            int[] pathGridArray = map.pathGrid.pathGrid;
             TerrainDef[] topGrid = map.terrainGrid.topGrid;
-            EdificeGrid edificeGrid = map.edificeGrid;
-            int num2 = 0;
-            int num3 = 0;
+            int closedNodes = 0;
+            int openedNodes = 0;
             Area allowedArea = GetAllowedArea(pawn);
-            bool flag5 = pawn != null && PawnUtility.ShouldCollideWithPawns(pawn);
-            bool flag6 = (!flag && start.GetRegion(map, RegionType.Set_Passable) != null) & flag2;
-            bool flag7 = !flag || !flag3;
-            bool flag8 = false;
-            bool flag9 = pawn?.Drafted ?? false;
-            int num4 = (pawn?.IsColonist ?? false) ? 100000 : 2000;
-            int num5 = 0;
-            int num6 = 0;
-            float num7 = DetermineHeuristicStrength(pawn, start, dest);
-            int num8;
-            int num9;
+
+            bool shouldCollideWithPawns = pawn != null && PawnUtility.ShouldCollideWithPawns(pawn);
+            bool flag6 = (!passDestroyableThings && start.GetRegion(map, RegionType.Set_Passable) != null) && passWater;
+            bool alwaysTrue = !passDestroyableThings || !dontPassDestroyableThings; // TODO I don't get what this is supposed to be, but in practice it's always true
+            bool regionBasedPathing = false;
+            bool pawnDrafted = pawn?.Drafted ?? false;
+            int nodesToOpenBeforeRegionBasedPathing = (pawn?.IsColonist ?? false) ? NodesToOpenBeforeRegionBasedPathing_Colonist : NodesToOpenBeforeRegionBasedPathing_NonColonist;
+            float heuristicStrength = DetermineHeuristicStrength(pawn, start, dest);
+            int moveTicksCardinal;
+            int moveTicksDiagonal;
             if (pawn != null)
             {
-                num8 = pawn.TicksPerMoveCardinal;
-                num9 = pawn.TicksPerMoveDiagonal;
+                moveTicksCardinal = pawn.TicksPerMoveCardinal;
+                moveTicksDiagonal = pawn.TicksPerMoveDiagonal;
             }
             else
             {
-                num8 = 13;
-                num9 = 18;
+                moveTicksCardinal = DefaultMoveTicksCardinal;
+                moveTicksDiagonal = DefaultMoveTicksDiagonal;
             }
-            CalculateAndAddDisallowedCorners(traverseParms, peMode, cellRect);
+            List<int> disallowedCornerIndices = CalculateDisallowedCorners(traverseParms, peMode, cellRect);
             InitStatusesAndPushStartNode(ref curIndex, start);
             while (true)
             {
                 //PfProfilerBeginSample("Open cell"); //TODO
                 if (openList.Count <= 0)
                 {
-                    string text = (pawn != null && pawn.CurJob != null) ? pawn.CurJob.ToString() : "null";
-                    string text2 = (pawn != null && pawn.Faction != null) ? pawn.Faction.ToString() : "null";
-                    Log.Warning(pawn + " pathing from " + start + " to " + dest + " ran out of cells to process.\nJob:" + text + "\nFaction: " + text2, false);
+                    string currentJob = (pawn != null && pawn.CurJob != null) ? pawn.CurJob.ToString() : "null";
+                    string faction = (pawn != null && pawn.Faction != null) ? pawn.Faction.ToString() : "null";
+                    Log.Warning(pawn + " pathing from " + start + " to " + dest + " ran out of cells to process.\nJob:" + currentJob + "\nFaction: " + faction, false);
                     //TODO
                     //DebugDrawRichData();
                     //PfProfilerEndSample();
                     //PfProfilerEndSample();
                     return PawnPath.NotFound;
                 }
-                num5 += openList.Count;
-                num6++;
                 CostNode costNode = openList.Pop();
                 curIndex = costNode.index;
                 if (costNode.cost != calcGrid[curIndex].costNodeCost)
@@ -269,14 +267,14 @@ namespace Trailblazer
                 else
                 {
                     IntVec3 intVec = cellIndices.IndexToCell(curIndex);
-                    int x2 = intVec.x;
-                    int z2 = intVec.z;
-                    if (flag4)
+                    int currX = intVec.x;
+                    int currZ = intVec.z;
+                    if (destinationIsSingleCell)
                     {
                         if (curIndex == num)
                         {
                             //PfProfilerEndSample(); //TODO
-                            PawnPath result = FinalizedPath(curIndex, flag8);
+                            PawnPath result = FinalizedPath(curIndex, regionBasedPathing);
                             //PfProfilerEndSample(); //TODO
                             return result;
                         }
@@ -284,11 +282,11 @@ namespace Trailblazer
                     else if (cellRect.Contains(intVec) && !disallowedCornerIndices.Contains(curIndex))
                     {
                         //PfProfilerEndSample(); //TODO
-                        PawnPath result2 = FinalizedPath(curIndex, flag8);
+                        PawnPath result2 = FinalizedPath(curIndex, regionBasedPathing);
                         //PfProfilerEndSample(); //TODO
                         return result2;
                     }
-                    if (num2 > 160000)
+                    if (closedNodes > SearchLimit)
                     {
                         break;
                     }
@@ -297,201 +295,203 @@ namespace Trailblazer
                     //PfProfilerBeginSample("Neighbor consideration");
                     for (int i = 0; i < 8; i++)
                     {
-                        uint num10 = (uint)(x2 + Directions[i]);
-                        uint num11 = (uint)(z2 + Directions[i + 8]);
-                        if (num10 < mapSizeX && num11 < mapSizeZ)
+                        uint tentativeNeighborX = (uint)(currX + Directions[i]);
+                        uint tentativeNeighborZ = (uint)(currZ + Directions[i + 8]);
+                        if (tentativeNeighborX < mapSizeX && tentativeNeighborZ < mapSizeZ)
                         {
-                            int num12 = (int)num10;
-                            int num13 = (int)num11;
-                            int num14 = cellIndices.CellToIndex(num12, num13);
-                            if (calcGrid[num14].status != statusClosedValue || flag8)
+                            int neighborX = (int)tentativeNeighborX;
+                            int neighborZ = (int)tentativeNeighborZ;
+                            int neighborIndex = cellIndices.CellToIndex(neighborX, neighborZ);
+                            if (calcGrid[neighborIndex].status != statusClosedValue || regionBasedPathing)
                             {
-                                int num15 = 0;
-                                bool flag10 = false;
-                                if (flag2 || !new IntVec3(num12, 0, num13).GetTerrain(map).HasTag("Water"))
+                                int cellCost = 0;
+                                bool blockedByWall = false;
+                                if (passWater || !new IntVec3(neighborX, 0, neighborZ).GetTerrain(map).HasTag("Water"))
                                 {
-                                    if (!pathGrid.WalkableFast(num14))
+                                    // TODO -- This seems to check for walls.  Later on a second check is done
+                                    // that only accounts for doors.
+                                    if (!pathGrid.WalkableFast(neighborIndex))
                                     {
-                                        if (!flag)
+                                        if (!passDestroyableThings)
                                         {
                                             continue;
                                         }
-                                        flag10 = true;
-                                        num15 += 70;
-                                        Building building = edificeGrid[num14];
+                                        blockedByWall = true;
+                                        cellCost += Cost_BlockedWallBase;
+                                        Building building = edificeGrid[neighborIndex];
                                         if (building == null || !IsDestroyable(building))
                                         {
                                             continue;
                                         }
-                                        num15 += (int)((float)building.HitPoints * 0.2f);
+                                        cellCost += (int)(building.HitPoints * Cost_BlockedWallExtraPerHitPoint);
                                     }
                                     switch (i)
                                     {
                                         case 4:
                                             if (BlocksDiagonalMovement(curIndex - mapSizeX))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             if (BlocksDiagonalMovement(curIndex + 1))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             goto default;
                                         case 5:
                                             if (BlocksDiagonalMovement(curIndex + mapSizeX))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             if (BlocksDiagonalMovement(curIndex + 1))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             goto default;
                                         case 6:
                                             if (BlocksDiagonalMovement(curIndex + mapSizeX))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             if (BlocksDiagonalMovement(curIndex - 1))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             goto default;
                                         case 7:
                                             if (BlocksDiagonalMovement(curIndex - mapSizeX))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             if (BlocksDiagonalMovement(curIndex - 1))
                                             {
-                                                if (flag7)
+                                                if (alwaysTrue)
                                                 {
                                                     break;
                                                 }
-                                                num15 += 70;
+                                                cellCost += 70;
                                             }
                                             goto default;
                                         default:
                                             {
-                                                int num16 = (i > 3) ? num9 : num8;
-                                                num16 += num15;
-                                                if (!flag10)
+                                                cellCost += (i > 3) ? moveTicksDiagonal : moveTicksCardinal;
+                                                if (!blockedByWall)
                                                 {
-                                                    num16 += array[num14];
-                                                    num16 = ((!flag9) ? (num16 + topGrid[num14].extraNonDraftedPerceivedPathCost) : (num16 + topGrid[num14].extraDraftedPerceivedPathCost));
+                                                    cellCost += pathGridArray[neighborIndex];
+                                                    cellCost += pawnDrafted ? topGrid[neighborIndex].extraDraftedPerceivedPathCost : topGrid[neighborIndex].extraNonDraftedPerceivedPathCost;
                                                 }
-                                                if (byteGrid != null)
+                                                if (avoidGrid != null)
                                                 {
-                                                    num16 += byteGrid[num14] * 8;
+                                                    cellCost += avoidGrid[neighborIndex] * 8;
                                                 }
-                                                if (allowedArea != null && !allowedArea[num14])
+                                                if (allowedArea != null && !allowedArea[neighborIndex])
                                                 {
-                                                    num16 += 600;
+                                                    cellCost += Cost_OutsideAllowedArea;
                                                 }
-                                                if (flag5 && PawnUtility.AnyPawnBlockingPathAt(new IntVec3(num12, 0, num13), pawn, false, false, true))
+                                                if (shouldCollideWithPawns && PawnUtility.AnyPawnBlockingPathAt(new IntVec3(neighborX, 0, neighborZ), pawn, false, false, true))
                                                 {
-                                                    num16 += 175;
+                                                    cellCost += Cost_PawnCollision;
                                                 }
-                                                Building building2 = this.edificeGrid[num14];
+                                                Building building2 = edificeGrid[neighborIndex];
                                                 if (building2 != null)
                                                 {
                                                     //PfProfilerBeginSample("Edifices"); //TODO
                                                     int buildingCost = GetBuildingCost(building2, traverseParms, pawn);
-                                                    if (buildingCost == 2147483647)
+                                                    if (buildingCost == int.MaxValue)
                                                     {
                                                         //PfProfilerEndSample(); //TODO
                                                         break;
                                                     }
-                                                    num16 += buildingCost;
+                                                    cellCost += buildingCost;
                                                     //PfProfilerEndSample(); //TODO
                                                 }
-                                                List<Blueprint> list = blueprintGrid[num14];
+                                                List<Blueprint> list = blueprintGrid.InnerArray[neighborIndex];
                                                 if (list != null)
                                                 {
                                                     //PfProfilerBeginSample("Blueprints"); //TODO
-                                                    int num17 = 0;
+                                                    int blueprintCost = 0;
                                                     for (int j = 0; j < list.Count; j++)
                                                     {
-                                                        num17 = Math.Max(num17, GetBlueprintCost(list[j], pawn));
+                                                        blueprintCost = Math.Max(blueprintCost, GetBlueprintCost(list[j], pawn));
                                                     }
-                                                    if (num17 == 2147483647)
+                                                    if (blueprintCost == int.MaxValue)
                                                     {
                                                         //PfProfilerEndSample(); //TODO
                                                         break;
                                                     }
-                                                    num16 += num17;
+                                                    cellCost += blueprintCost;
                                                     //PfProfilerEndSample(); //TODO
                                                 }
-                                                int num18 = num16 + calcGrid[curIndex].knownCost;
-                                                ushort status = calcGrid[num14].status;
+                                                int neighborKnownCost = cellCost + calcGrid[curIndex].knownCost;
+                                                ushort status = calcGrid[neighborIndex].status;
                                                 if (status == statusClosedValue || status == statusOpenValue)
                                                 {
                                                     int num19 = 0;
+                                                    // TODO -- why does a closed neighbor get an extra cardinal tick cost?
                                                     if (status == statusClosedValue)
                                                     {
-                                                        num19 = num8;
+                                                        num19 = moveTicksCardinal;
                                                     }
-                                                    if (calcGrid[num14].knownCost <= num18 + num19)
+                                                    if (calcGrid[neighborIndex].knownCost <= neighborKnownCost + num19)
                                                     {
                                                         break;
                                                     }
                                                 }
-                                                if (flag8)
+                                                if (regionBasedPathing)
                                                 {
-                                                    calcGrid[num14].heuristicCost = (int)Math.Round(regionCostCalculator.GetPathCostFromDestToRegion(num14) * RegionHeuristicWeightByNodesOpened.Evaluate(num3));
-                                                    if (calcGrid[num14].heuristicCost < 0)
+                                                    calcGrid[neighborIndex].heuristicCost = (int)Math.Round(regionCostCalculator.GetPathCostFromDestToRegion(neighborIndex) * RegionHeuristicWeightByNodesOpened.Evaluate(openedNodes));
+                                                    if (calcGrid[neighborIndex].heuristicCost < 0)
                                                     {
                                                         Log.ErrorOnce("Heuristic cost overflow for " + pawn.ToStringSafe() + " pathing from " + start + " to " + dest + ".", pawn.GetHashCode() ^ 0xB8DC389, false);
-                                                        calcGrid[num14].heuristicCost = 0;
+                                                        calcGrid[neighborIndex].heuristicCost = 0;
                                                     }
                                                 }
                                                 else if (status != statusClosedValue && status != statusOpenValue)
                                                 {
-                                                    int dx = Math.Abs(num12 - x);
-                                                    int dz = Math.Abs(num13 - z);
-                                                    int num20 = GenMath.OctileDistance(dx, dz, num8, num9);
-                                                    calcGrid[num14].heuristicCost = (int)Math.Round(num20 * num7);
+                                                    int dx = Math.Abs(neighborX - destX);
+                                                    int dz = Math.Abs(neighborZ - destZ);
+                                                    int octileDistance = GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
+                                                    calcGrid[neighborIndex].heuristicCost = (int)Math.Round(octileDistance * heuristicStrength);
                                                 }
-                                                int num21 = num18 + calcGrid[num14].heuristicCost;
-                                                if (num21 < 0)
+                                                int estimatedTotalCost = neighborKnownCost + calcGrid[neighborIndex].heuristicCost;
+                                                if (estimatedTotalCost < 0)
                                                 {
                                                     Log.ErrorOnce("Node cost overflow for " + pawn.ToStringSafe() + " pathing from " + start + " to " + dest + ".", pawn.GetHashCode() ^ 0x53CB9DE, false);
-                                                    num21 = 0;
+                                                    estimatedTotalCost = 0;
                                                 }
-                                                calcGrid[num14].parentIndex = curIndex;
-                                                calcGrid[num14].knownCost = num18;
-                                                calcGrid[num14].status = statusOpenValue;
-                                                calcGrid[num14].costNodeCost = num21;
-                                                num3++;
-                                                openList.Push(new CostNode(num14, num21));
+                                                calcGrid[neighborIndex].parentIndex = curIndex;
+                                                calcGrid[neighborIndex].knownCost = neighborKnownCost;
+                                                calcGrid[neighborIndex].status = statusOpenValue;
+                                                calcGrid[neighborIndex].costNodeCost = estimatedTotalCost;
+                                                openedNodes++;
+                                                openList.Push(new CostNode(neighborIndex, estimatedTotalCost));
                                                 break;
                                             }
                                     }
@@ -500,25 +500,27 @@ namespace Trailblazer
                         }
                     }
                     //PfProfilerEndSample(); //TODO
-                    num2++;
+                    closedNodes++;
                     calcGrid[curIndex].status = statusClosedValue;
-                    if (((num3 >= num4) & flag6) && !flag8)
+                    if (((openedNodes >= nodesToOpenBeforeRegionBasedPathing) & flag6) && !regionBasedPathing)
                     {
-                        flag8 = true;
-                        regionCostCalculator.Init(cellRect, traverseParms, num8, num9, byteGrid, allowedArea, flag9, disallowedCornerIndices);
+                        regionBasedPathing = true;
+                        regionCostCalculator.Init(cellRect, traverseParms, moveTicksCardinal, moveTicksDiagonal, avoidGrid, allowedArea, pawnDrafted, disallowedCornerIndices);
                         InitStatusesAndPushStartNode(ref curIndex, start);
-                        num3 = 0;
-                        num2 = 0;
+                        openedNodes = 0;
+                        closedNodes = 0;
                     }
                 }
             }
-            Log.Warning(pawn + " pathing from " + start + " to " + dest + " hit search limit of " + 160000 + " cells.", false);
+            Log.Warning(pawn + " pathing from " + start + " to " + dest + " hit search limit of " + SearchLimit + " cells.", false);
             //TODO
             //DebugDrawRichData();
             //PfProfilerEndSample();
             //PfProfilerEndSample();
             return PawnPath.NotFound;
         }
+
+        // TODO ======= duplicate methods ========
 
         private bool BlocksDiagonalMovement(int x, int z)
         {
@@ -596,7 +598,7 @@ namespace Trailblazer
         {
             if (pawn != null && pawn.RaceProps.Animal)
             {
-                return 1.75f;
+                return NonRegionBasedHeuristicStrengthAnimal;
             }
             float lengthHorizontal = (start - dest.Cell).LengthHorizontal;
             return (float)Math.Round(NonRegionBasedHeuristicStrengthHuman_DistanceCurve.Evaluate(lengthHorizontal));
@@ -626,9 +628,9 @@ namespace Trailblazer
             return null;
         }
 
-        private void CalculateAndAddDisallowedCorners(TraverseParms traverseParms, PathEndMode peMode, CellRect destinationRect)
+        private List<int> CalculateDisallowedCorners(TraverseParms traverseParms, PathEndMode peMode, CellRect destinationRect)
         {
-            disallowedCornerIndices.Clear();
+            List<int> disallowedCornerIndices = new List<int>(4);
             if (peMode == PathEndMode.Touch)
             {
                 int minX = destinationRect.minX;
@@ -652,6 +654,7 @@ namespace Trailblazer
                     disallowedCornerIndices.Add(map.cellIndices.CellToIndex(maxX, minZ));
                 }
             }
+            return disallowedCornerIndices;
         }
 
         private bool IsCornerTouchAllowed(int cornerX, int cornerZ, int adjCardinal1X, int adjCardinal1Z, int adjCardinal2X, int adjCardinal2Z)
