@@ -18,14 +18,12 @@ namespace Trailblazer
         }
     }
 
-    //TODO replace the whole pathfinder with Trailblazer
-    //[HarmonyPatch(typeof(PathFinder), "FindPath", new Type[] { typeof(IntVec3), typeof(LocalTargetInfo), typeof(TraverseParms), typeof(PathEndMode) })]
-    //static class Patch_PawnUtility_GetAvoidGrid
-    //{
-    //    static bool Prefix(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode, ref PawnPath __result)
-    //    {
-    //        __result = Trailblazer.FindPath(start, dest, traverseParms, peMode);
-    //        return false;
-    //    }
-    //}
+    [HarmonyPatch(typeof(Map), "ConstructComponents")]
+    static class Patch_Map_ConstructComponents
+    {
+        static void Postfix(Map __instance)
+        {
+            __instance.pathFinder = new Trailblazer(__instance);
+        }
+    }
 }

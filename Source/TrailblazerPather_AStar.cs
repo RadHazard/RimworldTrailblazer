@@ -56,7 +56,6 @@ namespace Trailblazer
 
             public TrailblazerPathWorker_Vanilla(Map map, PathfindRequest pathfindRequest) : base(map, pathfindRequest)
             {
-                //this.parent = parent;
                 calcGrid = new PathFinderNode[map.Size.x * map.Size.z];
                 openSet = new FastPriorityQueue<CostNode>(new CostNodeComparer());
                 regionCostCalculator = new RegionCostCalculatorWrapper(map);
@@ -65,9 +64,6 @@ namespace Trailblazer
             public override PawnPath FindPath()
             {
                 Map map = pathData.map;
-
-                //int mapSizeX = map.Size.x;
-                //int mapSizeZ = map.Size.z;
 
                 int moveTicksCardinal;
                 int moveTicksDiagonal;
@@ -116,11 +112,13 @@ namespace Trailblazer
                     {
                         if (currentIndex == destIndex)
                         {
+                            DebugDrawRichData(currentIndex);
                             return FinalizedPath(currentIndex);
                         }
                     }
                     else if (destRect.Contains(currentCell) && !disallowedCornerIndices.Contains(currentIndex))
                     {
+                        DebugDrawRichData(currentIndex);
                         return FinalizedPath(currentIndex);
                     }
 
@@ -129,7 +127,7 @@ namespace Trailblazer
                     {
                         Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " + dest +
                         	" hit search limit of " + SearchLimit + " cells.", false);
-                        //DebugDrawRichData(); //TODO
+                        DebugDrawRichData();
                         return PawnPath.NotFound;
                     }
 
@@ -171,7 +169,7 @@ namespace Trailblazer
                 string faction = pawn?.Faction?.ToString() ?? "null";
                 Log.Warning(pawn + " pathing from " + pathData.start + " to " + dest + " ran out of cells to process.\n" +
                 	"Job:" + currentJob + "\nFaction: " + faction, false);
-                //DebugDrawRichData(); // TODO
+                DebugDrawRichData();
                 return PawnPath.NotFound;
             }
 
@@ -220,8 +218,31 @@ namespace Trailblazer
                     case Direction.NW:
                         return index + mapSizeX - 1;
                     default:
-                        // This can't actually happen
                         throw new Exception("Moved in an invalid direction");
+                }
+            }
+
+            private void DebugDrawRichData(int destIndex = -1)
+            {
+                if (DebugViewSettings.drawPaths)
+                {
+                    if (destIndex != -1)
+                    {
+                        int pathIndex = destIndex;
+                        while (destIndex >= 0)
+                        {
+                            IntVec3 c = pathData.map.cellIndices.IndexToCell(pathIndex);
+                            pathData.map.debugDrawer.FlashCell(c, 0f, calcGrid[pathIndex].totalCost.ToString(), 75);
+                            pathIndex = calcGrid[pathIndex].parentIndex;
+                        }
+                    }
+
+                    while (openSet.Count > 0)
+                    {
+                        CostNode costNode = openSet.Pop();
+                        IntVec3 c = pathData.map.cellIndices.IndexToCell(costNode.index);
+                        pathData.map.debugDrawer.FlashCell(c, 0f, "open", 50);
+                    }
                 }
             }
 

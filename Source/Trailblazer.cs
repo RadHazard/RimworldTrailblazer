@@ -15,7 +15,7 @@ namespace Trailblazer
         public Trailblazer(Map map) : base(map)
         {
             this.map = map;
-            pather = new TrailblazerPather_Vanilla(map);
+            pather = new TrailblazerPather_AStar(map);
         }
 
         /// <summary>

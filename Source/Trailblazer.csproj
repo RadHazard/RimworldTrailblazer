@@ -6,7 +6,7 @@
     <ProjectGuid>{B4FD4309-52D1-45CD-A5CD-316C5556EB2C}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>Trailblazer</RootNamespace>
-    <AssemblyName>RangedDPS</AssemblyName>
+    <AssemblyName>Trailblazer</AssemblyName>
     <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -40,6 +40,10 @@
       <HintPath>packages\Lib.Harmony.2.0.2\lib\net45\0Harmony.dll</HintPath>
       <Private>False</Private>
       <IncludeInPackage>false</IncludeInPackage>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>..\..\..\..\..\..\mnt\electromagic\SteamLibrary\steamapps\common\RimWorld\RimWorldLinux_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
