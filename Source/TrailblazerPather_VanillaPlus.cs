@@ -9,10 +9,10 @@ using Verse.AI;
 namespace Trailblazer
 {
     /// <summary>
-    /// Trailblazer pather that closely replicates the vanilla pathfinding algorithm
-    /// (A form of A* that has some kind of alternative heuristic for long paths)
+    /// Trailblazer pather that closely replicates the vanilla pathfinding algorithm but using the Trailblazer
+    /// cost code
     /// </summary>
-    public class TrailblazerPather_Vanilla : TrailblazerPather
+    public class TrailblazerPather_VanillaPlus : TrailblazerPather
     {
         private struct CostNode
         {
@@ -50,7 +50,7 @@ namespace Trailblazer
              0,  1,  0, -1,  1,  1, -1, -1,
             -1,  0,  1,  0, -1,  1,  1, -1
         };
-            
+
         private const int NodesToOpenBeforeRegionBasedPathing_NonColonist = 2000;
         private const int NodesToOpenBeforeRegionBasedPathing_Colonist = 100000;
 
@@ -91,7 +91,7 @@ namespace Trailblazer
         };
 
 
-        public TrailblazerPather_Vanilla(Map map) : base(map) { }
+        public TrailblazerPather_VanillaPlus(Map map) : base(map) { }
 
         protected override TrailblazerPathWorker GetWorker(PathfindRequest pathfindRequest)
         {
