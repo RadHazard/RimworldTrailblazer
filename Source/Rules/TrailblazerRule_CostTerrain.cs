@@ -6,7 +6,7 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell for the terrain
     /// </summary>
-    public abstract class TrailblazerRule_CostTerrain : TrailblazerRule
+    public class TrailblazerRule_CostTerrain : TrailblazerRule
     {
         protected const int Cost_BlockedWallBase = 70;
         protected const float Cost_BlockedWallExtraPerHitPoint = 0.2f;
@@ -17,7 +17,7 @@ namespace Trailblazer.Rules
         protected readonly TerrainGrid terrainGrid;
         protected readonly bool pawnDrafted;
 
-        TrailblazerRule_CostTerrain(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostTerrain(PathData pathData) : base(pathData)
         {
             pathGrid = pathData.map.pathGrid;
             terrainGrid = pathData.map.terrainGrid;

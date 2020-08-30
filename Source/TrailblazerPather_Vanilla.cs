@@ -11,6 +11,8 @@ namespace Trailblazer
     /// <summary>
     /// Trailblazer pather that closely replicates the vanilla pathfinding algorithm
     /// (A form of A* that has some kind of alternative heuristic for long paths)
+    /// 
+    /// TODO - not functional, mostly kept around because it contains reverse-engineered details
     /// </summary>
     public class TrailblazerPather_Vanilla : TrailblazerPather
     {

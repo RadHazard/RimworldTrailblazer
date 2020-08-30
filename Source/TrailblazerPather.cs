@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using RimWorld;
+using Trailblazer.Rules;
 using Verse;
 using Verse.AI;
 
@@ -77,223 +78,61 @@ namespace Trailblazer
         /// </summary>
         protected abstract class TrailblazerPathWorker
         {
-            protected readonly Map map;
-            protected readonly IntVec3 start;
-            protected readonly LocalTargetInfo dest;
-            protected readonly TraverseParms traverseParms;
-            protected readonly PathEndMode pathEndMode;
+            //TODO - this list needs to be extensible
+            protected static readonly List<Func<PathData, TrailblazerRule>> ruleFactories = new List<Func<PathData, TrailblazerRule>>
+            {
+                r => new TrailblazerRule_PassabilityWater(r),
+                r => new TrailblazerRule_PassabilityDiagonal(r),
+                r => new TrailblazerRule_TestBuildings(r),
+                r => new TrailblazerRule_CostAllowedArea(r),
+                r => new TrailblazerRule_CostAvoidGrid(r),
+                r => new TrailblazerRule_CostBlueprints(r),
+                r => new TrailblazerRule_CostMoveTicks(r),
+                r => new TrailblazerRule_CostPawns(r),
+                r => new TrailblazerRule_CostTerrain(r)
+            };
+
+            protected readonly PathData pathData;
+            protected readonly List<TrailblazerRule> rules;
 
             protected TrailblazerPathWorker(Map map, PathfindRequest pathfindRequest)
             {
-                this.map = map;
-                start = pathfindRequest.start;
-                dest = pathfindRequest.dest;
-                traverseParms = pathfindRequest.traverseParms;
-                pathEndMode = pathfindRequest.pathEndMode;
+                pathData = new PathData(map, pathfindRequest.start, pathfindRequest.dest, pathfindRequest.traverseParms, pathfindRequest.pathEndMode);
+                rules = (from factory in ruleFactories
+                         let rule = factory.Invoke(pathData)
+                         where rule.Applies()
+                         select rule).ToList();
             }
 
             public abstract PawnPath FindPath();
 
-            protected bool IsCellPassible(IntVec3 cell, Move move)
+            protected int? CalcMoveCost(MoveData moveData)
             {
-                throw new NotImplementedException();
-            }
+                int cost = 0;
+                foreach (TrailblazerRule rule in rules)
+                {
+                    int? ruleCost = rule.GetConstantCost(moveData);
+                    if (ruleCost == null)
+                    {
+                        return null;
+                    }
+                    cost += ruleCost ?? 0;
+                }
 
-            protected bool GetCellCost(IntVec3 cell, Move move)
-            {
-                throw new NotImplementedException();
-            }
+                // TODO - evaluate: do we need a multiplier?  None of the vanilla rules use them
+                float multiplier = 1f;
+                foreach (TrailblazerRule rule in rules)
+                {
+                    float? ruleMultiplier = rule.GetCostMultiplier(moveData);
+                    if (ruleMultiplier == null)
+                    {
+                        return null;
+                    }
+                    multiplier *= ruleMultiplier ?? 1;
+                }
 
-            //protected bool IsCellPassible(IntVec3 cell, Move move, TraverseMode traverseMode)
-            //{
-            //    // Check for water
-            //    if (!traverseMode.CanPassWater() && cell.GetTerrain(map).HasTag("Water"))
-            //    {
-            //        return false;
-            //    }
-
-            //    // Check for walls
-            //    Building building = map.edificeGrid[cellIndex];
-            //    if (!map.pathGrid.WalkableFast(cellIndex))
-            //    {
-            //        if (!traverseMode.CanDestroy())
-            //        {
-            //            return null;
-            //        }
-            //        blockedByWall = true;
-            //        cellCost += Cost_BlockedWallBase;
-            //        if (building == null || !PathFinder.IsDestroyable(building))
-            //        {
-            //            return null;
-            //        }
-            //        cellCost += (int)(building.HitPoints * Cost_BlockedWallExtraPerHitPoint);
-            //    }
-
-            //    // Check if we're blocked from moving diagonally
-            //    if (move.IsDiagonal())
-            //    {
-            //        Move sideA;
-            //        Move sideB;
-            //        switch (move)
-            //        {
-            //            case Move.NW:
-            //                sideA = Move.S;
-            //                sideB = Move.E;
-            //                break;
-            //            case Move.NE:
-            //                sideA = Move.S;
-            //                sideB = Move.W;
-            //                break;
-            //            case Move.SE:
-            //                sideA = Move.N;
-            //                sideB = Move.W;
-            //                break;
-            //            case Move.SW:
-            //                sideA = Move.N;
-            //                sideB = Move.E;
-            //                break;
-            //            default:
-            //                throw new Exception("Invalid diagonal move");
-            //        }
-
-            //        if (BlocksDiagonalMovement(sideA.From(cell)) || BlocksDiagonalMovement(sideB.From(cell)))
-            //        {
-            //            // TODO -- there was a weird, always-true boolean here in vanilla that would have added 70 to
-            //            // the cost instead of returning impassible were it ever false.  Not sure if that's important.
-            //            return false;
-            //        }
-            //    }
-            //}
-
-            ///// <summary>
-            ///// Calculates the cost of pathing through a cell
-            ///// </summary>
-            ///// <returns>The pathfinding cost, or null if the cell is not pathable.</returns>
-            ///// <param name="cell">The cell we're pathing through.</param>
-            ///// <param name="move">The direction we're moving into the cell.</param>
-            ///// <param name="traverseMode">The traverse mode to use.</param>
-            ///// <param name="pathCostData">Additional data used for pathing costs.</param>
-            //protected int? CalcCellCost(IntVec3 cell, Move move, TraverseMode traverseMode, PathCostData pathCostData)
-            //{
-            //    int cellCost = 0;
-            //    int cellIndex = map.cellIndices.CellToIndex(cell);
-            //    bool blockedByWall = false;
-
-            //    // Check for water
-            //    if (!traverseMode.CanPassWater() && cell.GetTerrain(map).HasTag("Water"))
-            //    {
-            //        return null;
-            //    }
-
-            //    // Check for walls
-            //    Building building = map.edificeGrid[cellIndex];
-            //    if (!map.pathGrid.WalkableFast(cellIndex))
-            //    {
-            //        if (!traverseMode.CanDestroy())
-            //        {
-            //            return null;
-            //        }
-            //        blockedByWall = true;
-            //        cellCost += Cost_BlockedWallBase;
-            //        if (building == null || !PathFinder.IsDestroyable(building))
-            //        {
-            //            return null;
-            //        }
-            //        cellCost += (int)(building.HitPoints * Cost_BlockedWallExtraPerHitPoint);
-            //    }
-
-            //    // Check if we're blocked from moving diagonally
-            //    if (move.IsDiagonal())
-            //    {
-            //        Move sideA;
-            //        Move sideB;
-            //        switch (move)
-            //        {
-            //            case Move.NW:
-            //                sideA = Move.S;
-            //                sideB = Move.E;
-            //                break;
-            //            case Move.NE:
-            //                sideA = Move.S;
-            //                sideB = Move.W;
-            //                break;
-            //            case Move.SE:
-            //                sideA = Move.N;
-            //                sideB = Move.W;
-            //                break;
-            //            case Move.SW:
-            //                sideA = Move.N;
-            //                sideB = Move.E;
-            //                break;
-            //            default:
-            //                throw new Exception("Invalid diagonal move");
-            //        }
-
-            //        if (BlocksDiagonalMovement(sideA.From(cell)) || BlocksDiagonalMovement(sideB.From(cell)))
-            //        {
-            //            // TODO -- there was a weird, always-true boolean here in vanilla that would have added 70 to
-            //            // the cost instead of returning impassible were it ever false.  Not sure if that's important.
-            //            return null;
-            //        }
-            //    }
-
-            //    cellCost += move.IsDiagonal() ? pathCostData.moveTicksDiagonal : pathCostData.moveTicksCardinal;
-            //    if (!blockedByWall)
-            //    {
-            //        cellCost += pathCostData.pathGridArray[cellIndex];
-            //        cellCost += pathCostData.pawnDrafted ? topGrid[cellIndex].extraDraftedPerceivedPathCost : topGrid[cellIndex].extraNonDraftedPerceivedPathCost;
-            //    }
-            //    if (pathCostData.avoidGrid != null)
-            //    {
-            //        cellCost += pathCostData.avoidGrid[cellIndex] * 8;
-            //    }
-            //    if (pathCostData.allowedArea != null && !pathCostData.allowedArea[cellIndex])
-            //    {
-            //        cellCost += Cost_OutsideAllowedArea;
-            //    }
-            //    if (pathCostData.shouldCollideWithPawns && PawnUtility.AnyPawnBlockingPathAt(cell, pathCostData.pawn, false, false, true))
-            //    {
-            //        cellCost += Cost_PawnCollision;
-            //    }
-
-            //    // Check for doors
-            //    if (building != null)
-            //    {
-            //        int buildingCost = PathFinder.GetBuildingCost(building, pathCostData.traverseParms, pathCostData.pawn);
-            //        if (buildingCost == int.MaxValue)
-            //        {
-            //            return null;
-            //        }
-            //        cellCost += buildingCost;
-            //    }
-
-            //    // Check for blueprints
-            //    List<Blueprint> list = map.blueprintGrid.InnerArray[cellIndex];
-            //    if (list != null)
-            //    {
-            //        int blueprintCost = 0;
-            //        for (int j = 0; j < list.Count; j++)
-            //        {
-            //            blueprintCost = Math.Max(blueprintCost, PathFinder.GetBlueprintCost(list[j], pawn));
-            //        }
-            //        if (blueprintCost == int.MaxValue)
-            //        {
-            //            return null;
-            //        }
-            //        cellCost += blueprintCost;
-            //    }
-
-            //    return cellCost;
-            //}
-
-            /// <summary>
-            /// Checks whether a cell blocks diagonal movement.
-            /// </summary>
-            /// <returns><c>true</c> if diagonal movement is blocked, <c>false</c> otherwise.</returns>
-            /// <param name="cell">The cell to check.</param>
-            private bool BlocksDiagonalMovement(IntVec3 cell)
-            {
-                return PathFinder.BlocksDiagonalMovement(cell.x, cell.z, map);
+                // Ensure cost is never less than zero
+                return Math.Max(0, (int)Math.Round(cost * multiplier));
             }
         }
     }

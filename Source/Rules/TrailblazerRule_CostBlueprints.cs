@@ -8,14 +8,14 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell for the blueprints sitting on it
     /// </summary>
-    public abstract class TrailblazerRule_CostBlueprints : TrailblazerRule
+    public class TrailblazerRule_CostBlueprints : TrailblazerRule
     {
         protected const int Cost_OutsideAllowedArea = 600;
 
         protected readonly BlueprintGrid blueprintGrid;
         protected readonly Pawn pawn;
 
-        TrailblazerRule_CostBlueprints(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostBlueprints(PathData pathData) : base(pathData)
         {
             blueprintGrid = pathData.map.blueprintGrid;
 

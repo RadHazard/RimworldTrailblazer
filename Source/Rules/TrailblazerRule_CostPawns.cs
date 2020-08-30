@@ -6,13 +6,13 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell if it's occupied by a pawn
     /// </summary>
-    public abstract class TrailblazerRule_CostPawns : TrailblazerRule
+    public class TrailblazerRule_CostPawns : TrailblazerRule
     {
         protected const int Cost_PawnCollision = 175;
 
         protected readonly Pawn pawn;
 
-        TrailblazerRule_CostPawns(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostPawns(PathData pathData) : base(pathData)
         {
             pawn = pathData.traverseParms.pawn;
         }

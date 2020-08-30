@@ -1,16 +1,15 @@
-﻿using System;
-using Verse;
+﻿using Verse;
 
 namespace Trailblazer.Rules
 {
     /// <summary>
     /// Rule that declares water cells impassible when the TraverseMode requires it
     /// </summary>
-    public abstract class TrailblazerRule_PassabilityWater : TrailblazerRule
+    public class TrailblazerRule_PassabilityWater : TrailblazerRule
     {
         protected readonly bool active;
 
-        TrailblazerRule_PassabilityWater(PathData pathData) : base(pathData)
+        public TrailblazerRule_PassabilityWater(PathData pathData) : base(pathData)
         {
             active = !pathData.traverseParms.mode.CanPassWater();
         }
@@ -20,9 +19,9 @@ namespace Trailblazer.Rules
             return active;
         }
 
-        public override int? GetConstantCost(MoveData cellData)
+        public override int? GetConstantCost(MoveData moveData)
         {
-            if (cellData.cell.GetTerrain(pathData.map).HasTag("Water"))
+            if (moveData.cell.GetTerrain(pathData.map).HasTag("Water"))
             {
                 return null;
             }

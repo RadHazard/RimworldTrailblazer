@@ -6,11 +6,11 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell based on the AvoidGrid
     /// </summary>
-    public abstract class TrailblazerRule_CostAvoidGrid : TrailblazerRule
+    public class TrailblazerRule_CostAvoidGrid : TrailblazerRule
     {
         protected readonly ByteGrid avoidGrid;
 
-        TrailblazerRule_CostAvoidGrid(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostAvoidGrid(PathData pathData) : base(pathData)
         {
             avoidGrid = pathData.traverseParms.pawn?.GetAvoidGrid(true);
         }

@@ -50,7 +50,6 @@
     <Compile Include="TrailblazerPather_Vanilla.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Direction.cs" />
-    <Compile Include="TrailblazerPather_VanillaPlus.cs" />
     <Compile Include="Rules\TrailblazerRule.cs" />
     <Compile Include="Rules\TrailblazerRule_CostMoveTicks.cs" />
     <Compile Include="Rules\TrailblazerRule_PassabilityWater.cs" />
@@ -61,6 +60,7 @@
     <Compile Include="Rules\TrailblazerRule_CostPawns.cs" />
     <Compile Include="Rules\TrailblazerRule_TestBuildings.cs" />
     <Compile Include="Rules\TrailblazerRule_CostTerrain.cs" />
+    <Compile Include="TrailblazerPather_AStar.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

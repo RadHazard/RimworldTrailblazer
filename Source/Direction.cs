@@ -21,6 +21,18 @@ namespace Trailblazer
 
     public static class DirectionUtils
     {
+        public static Direction[] AllDirections =
+        {
+            Direction.N,
+            Direction.NE,
+            Direction.E,
+            Direction.SE,
+            Direction.S,
+            Direction.SW,
+            Direction.W,
+            Direction.NW
+        };
+
         public static Direction[] CardinalDirections =
         {
             Direction.N,

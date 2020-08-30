@@ -6,16 +6,16 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Rule that declares a diagonal movement impossible if something would block it (like a wall)
     /// </summary>
-    public abstract class TrailblazerRule_PassabilityDiagonal : TrailblazerRule
+    public class TrailblazerRule_PassabilityDiagonal : TrailblazerRule
     {
 
-        TrailblazerRule_PassabilityDiagonal(PathData pathData) : base(pathData) { }
+        public TrailblazerRule_PassabilityDiagonal(PathData pathData) : base(pathData) { }
 
-        public override int? GetConstantCost(MoveData cellData)
+        public override int? GetConstantCost(MoveData moveData)
         {
             Direction sideA;
             Direction sideB;
-            switch (cellData.enterDirection)
+            switch (moveData.enterDirection)
             {
                 case Direction.NW:
                     sideA = Direction.S;
@@ -37,7 +37,7 @@ namespace Trailblazer.Rules
                     return 0;
             }
 
-            if (BlocksDiagonalMovement(sideA.From(cellData.cell)) || BlocksDiagonalMovement(sideB.From(cellData.cell)))
+            if (BlocksDiagonalMovement(sideA.From(moveData.cell)) || BlocksDiagonalMovement(sideB.From(moveData.cell)))
             {
                 // NOTE
                 // The vanilla pathfinder has a weird if statement here.  It seems like in some cases blocked diagonal

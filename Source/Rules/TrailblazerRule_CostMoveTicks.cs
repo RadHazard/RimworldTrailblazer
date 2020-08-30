@@ -4,15 +4,15 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost for simply moving from one cell to the next
     /// </summary>
-    public abstract class TrailblazerRule_CostMoveTicks : TrailblazerRule
+    public class TrailblazerRule_CostMoveTicks : TrailblazerRule
     {
-        protected const int DefaultMoveTicksCardinal = 13;
-        protected const int DefaultMoveTicksDiagonal = 18;
+        public const int DefaultMoveTicksCardinal = 13;
+        public const int DefaultMoveTicksDiagonal = 18;
 
         protected readonly int moveTicksCardinal;
         protected readonly int moveTicksDiagonal;
 
-        TrailblazerRule_CostMoveTicks(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostMoveTicks(PathData pathData) : base(pathData)
         {
 
             if (pathData.traverseParms.pawn != null)

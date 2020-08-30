@@ -11,7 +11,7 @@ namespace Trailblazer.Rules
     /// Test for a cell for the buildings sitting on it.  Depending on the traverse mode, impassible buildings
     /// may be considered impassible or they may just add a cost to the cell.
     /// </summary>
-    public abstract class TrailblazerRule_TestBuildings : TrailblazerRule
+    public class TrailblazerRule_TestBuildings : TrailblazerRule
     {
         protected const int Cost_BlockedWallBase = 70;
         protected const float Cost_BlockedWallExtraPerHitPoint = 0.2f;
@@ -24,7 +24,7 @@ namespace Trailblazer.Rules
         protected readonly Pawn pawn;
         protected Func<Building_Door, int> doorHandler;
 
-        TrailblazerRule_TestBuildings(PathData pathData) : base(pathData)
+        public TrailblazerRule_TestBuildings(PathData pathData) : base(pathData)
         {
             pathGrid = pathData.map.pathGrid;
             edificeGrid = pathData.map.edificeGrid;

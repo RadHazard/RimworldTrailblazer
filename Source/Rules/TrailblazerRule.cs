@@ -1,12 +1,24 @@
-﻿using System;
-using Verse;
+﻿using Verse;
+using Verse.AI;
 
 namespace Trailblazer.Rules
 {
     public struct PathData
     {
         public readonly Map map;
+        public readonly IntVec3 start;
+        public readonly LocalTargetInfo dest;
         public readonly TraverseParms traverseParms;
+        public readonly PathEndMode pathEndMode;
+
+        public PathData(Map map, IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode pathEndMode)
+        {
+            this.map = map;
+            this.start = start;
+            this.dest = dest;
+            this.traverseParms = traverseParms;
+            this.pathEndMode = pathEndMode;
+        }
     }
 
     public struct MoveData
@@ -15,6 +27,14 @@ namespace Trailblazer.Rules
         public readonly int cellIndex;
         public readonly Direction enterDirection;
         public readonly bool diagonal;
+
+        public MoveData(IntVec3 cell, int cellIndex, Direction enterDirection)
+        {
+            this.cell = cell;
+            this.cellIndex = cellIndex;
+            this.enterDirection = enterDirection;
+            this.diagonal = enterDirection.IsDiagonal();
+        }
     }
 
     /// <summary>
