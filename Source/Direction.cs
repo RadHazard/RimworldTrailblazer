@@ -7,7 +7,7 @@ namespace Trailblazer
     /// Enum representing a movement along the grid for pathfinding.  This may or may not match up to
     /// the north direction that the player sees onscreen (but that shouldn't matter)
     /// </summary>
-    public enum Move
+    public enum Direction
     {
         N,
         NE,
@@ -19,69 +19,69 @@ namespace Trailblazer
         NW
     }
 
-    public static class MoveUtils
+    public static class DirectionUtils
     {
-        public static Move[] CardinalMoves =
+        public static Direction[] CardinalDirections =
         {
-            Move.N,
-            Move.E,
-            Move.S,
-            Move.W
+            Direction.N,
+            Direction.E,
+            Direction.S,
+            Direction.W
         };
 
-        public static Move[] DiagonalMoves =
+        public static Direction[] DiagonalDirections =
         {
-            Move.N,
-            Move.E,
-            Move.S,
-            Move.W
+            Direction.N,
+            Direction.E,
+            Direction.S,
+            Direction.W
         };
 
         /// <summary>
-        /// Checks whether a move is cardinal.
+        /// Checks whether a direction is cardinal.
         /// </summary>
         /// <returns><c>true</c> if cardinal, <c>false</c> otherwise.</returns>
-        /// <param name="move">Move.</param>
-        public static bool IsCardinal(this Move move)
+        /// <param name="direction">Direction.</param>
+        public static bool IsCardinal(this Direction direction)
         {
-            return move == Move.N || move == Move.E || move == Move.S || move == Move.W;
+            return direction == Direction.N || direction == Direction.E || direction == Direction.S || direction == Direction.W;
         }
 
         /// <summary>
-        /// Checks whether a move is diagonal.
+        /// Checks whether a direction is diagonal.
         /// </summary>
         /// <returns><c>true</c> if diagonal, <c>false</c> otherwise.</returns>
-        /// <param name="move">The move to test.</param>
-        public static bool IsDiagonal(this Move move)
+        /// <param name="direction">Direction.</param>
+        public static bool IsDiagonal(this Direction direction)
         {
-            return move == Move.NE || move == Move.NW || move == Move.SE || move == Move.SW;
+            return direction == Direction.NE || direction == Direction.NW || direction == Direction.SE || direction == Direction.SW;
         }
 
         /// <summary>
         /// Returns the cell you would reach by moving in the given direction from the start cell
         /// </summary>
         /// <returns>The ending cell.</returns>
-        /// <param name="move">The direction to move.</param>
+        /// <param name="direction">The direction to move.</param>
         /// <param name="start">The starting cell.</param>
-        public static IntVec3 From(this Move move, IntVec3 start)
+        public static IntVec3 From(this Direction direction, IntVec3 start)
         {
-            switch (move)
+            switch (direction)
             {
-                case Move.N:
+                case Direction.N:
                     return start + new IntVec3(0, 0, 1);
-                case Move.NE:
+                case Direction.NE:
                     return start + new IntVec3(1, 0, 1);
-                case Move.E:
+                case Direction.E:
                     return start + new IntVec3(1, 0, 0);
-                case Move.SE:
+                case Direction.SE:
                     return start + new IntVec3(1, 0, -1);
-                case Move.S:
+                case Direction.S:
                     return start + new IntVec3(0, 0, -1);
-                case Move.SW:
+                case Direction.SW:
                     return start + new IntVec3(-1, 0, -1);
-                case Move.W:
+                case Direction.W:
                     return start + new IntVec3(-1, 0, 0);
-                case Move.NW:
+                case Direction.NW:
                     return start + new IntVec3(-1, 0, 1);
                 default:
                     // This can't actually happen

@@ -127,7 +127,6 @@ namespace Trailblazer
                 int destZ = dest.Cell.z;
                 int curIndex = cellIndices.CellToIndex(start);
                 int num = cellIndices.CellToIndex(dest.Cell);
-                ByteGrid avoidGrid = pawn?.GetAvoidGrid(true);
 
                 bool passDestroyableThings = traverseParms.mode.CanDestroy();
                 bool passWater = traverseParms.mode.CanPassWater();
@@ -138,7 +137,6 @@ namespace Trailblazer
                 TerrainDef[] topGrid = map.terrainGrid.topGrid;
                 int closedNodes = 0;
                 int openedNodes = 0;
-                Area allowedArea = GetAllowedArea(pawn);
 
                 bool shouldCollideWithPawns = pawn != null && PawnUtility.ShouldCollideWithPawns(pawn);
                 bool flag6 = (!passDestroyableThings && start.GetRegion(map, RegionType.Set_Passable) != null) && passWater;
@@ -227,8 +225,7 @@ namespace Trailblazer
                                 {
                                     int cellCost = 0;
                                     bool blockedByWall = false;
-                                    if (passWater || !new IntVec3(neighborX, 0, neighborZ).GetTerrain(map).HasTag("Water"))
-                                    {
+
                                         // TODO -- This seems to check for walls.  Later on a second check is done
                                         // that only accounts for doors.
                                         if (!pathGrid.WalkableFast(neighborIndex))
@@ -248,94 +245,14 @@ namespace Trailblazer
                                         }
                                         switch (i)
                                         {
-                                            case 4:
-                                                if (BlocksDiagonalMovement(curIndex - mapSizeX))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                if (BlocksDiagonalMovement(curIndex + 1))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                goto default;
-                                            case 5:
-                                                if (BlocksDiagonalMovement(curIndex + mapSizeX))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                if (BlocksDiagonalMovement(curIndex + 1))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                goto default;
-                                            case 6:
-                                                if (BlocksDiagonalMovement(curIndex + mapSizeX))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                if (BlocksDiagonalMovement(curIndex - 1))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                goto default;
-                                            case 7:
-                                                if (BlocksDiagonalMovement(curIndex - mapSizeX))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                if (BlocksDiagonalMovement(curIndex - 1))
-                                                {
-                                                    if (alwaysTrue)
-                                                    {
-                                                        break;
-                                                    }
-                                                    cellCost += 70;
-                                                }
-                                                goto default;
                                             default:
                                                 {
-                                                    cellCost += (i > 3) ? moveTicksDiagonal : moveTicksCardinal;
                                                     if (!blockedByWall)
                                                     {
                                                         cellCost += pathGridArray[neighborIndex];
                                                         cellCost += pawnDrafted ? topGrid[neighborIndex].extraDraftedPerceivedPathCost : topGrid[neighborIndex].extraNonDraftedPerceivedPathCost;
                                                     }
-                                                    if (avoidGrid != null)
-                                                    {
-                                                        cellCost += avoidGrid[neighborIndex] * 8;
-                                                    }
-                                                    if (allowedArea != null && !allowedArea[neighborIndex])
-                                                    {
-                                                        cellCost += Cost_OutsideAllowedArea;
-                                                    }
+
                                                     if (shouldCollideWithPawns && PawnUtility.AnyPawnBlockingPathAt(new IntVec3(neighborX, 0, neighborZ), pawn, false, false, true))
                                                     {
                                                         cellCost += Cost_PawnCollision;
@@ -353,23 +270,8 @@ namespace Trailblazer
                                                         cellCost += buildingCost;
                                                         //PfProfilerEndSample(); //TODO
                                                     }
-                                                    List<Blueprint> list = blueprintGrid.InnerArray[neighborIndex];
-                                                    if (list != null)
-                                                    {
-                                                        //PfProfilerBeginSample("Blueprints"); //TODO
-                                                        int blueprintCost = 0;
-                                                        for (int j = 0; j < list.Count; j++)
-                                                        {
-                                                            blueprintCost = Math.Max(blueprintCost, PathFinder.GetBlueprintCost(list[j], pawn));
-                                                        }
-                                                        if (blueprintCost == int.MaxValue)
-                                                        {
-                                                            //PfProfilerEndSample(); //TODO
-                                                            break;
-                                                        }
-                                                        cellCost += blueprintCost;
-                                                        //PfProfilerEndSample(); //TODO
-                                                    }
+
+
                                                     int neighborKnownCost = cellCost + calcGrid[curIndex].knownCost;
                                                     ushort status = calcGrid[neighborIndex].status;
                                                     if (status == statusClosedValue || status == statusOpenValue)
@@ -415,7 +317,6 @@ namespace Trailblazer
                                                     openList.Push(new CostNode(neighborIndex, estimatedTotalCost));
                                                     break;
                                                 }
-                                        }
                                     }
                                 }
                             }
@@ -532,20 +433,6 @@ namespace Trailblazer
                     result = result.ExpandedBy(1);
                 }
                 return result;
-            }
-
-            private Area GetAllowedArea(Pawn pawn)
-            {
-                if (pawn != null && pawn.playerSettings != null && !pawn.Drafted && ForbidUtility.CaresAboutForbidden(pawn, true))
-                {
-                    Area area = pawn.playerSettings.EffectiveAreaRestrictionInPawnCurrentMap;
-                    if (area != null && area.TrueCount <= 0)
-                    {
-                        area = null;
-                    }
-                    return area;
-                }
-                return null;
             }
 
             private List<int> CalculateDisallowedCorners(CellRect destinationRect)

@@ -49,11 +49,21 @@
     <Compile Include="Trailblazer.cs" />
     <Compile Include="TrailblazerPather_Vanilla.cs" />
     <Compile Include="Extensions.cs" />
-    <Compile Include="Move.cs" />
+    <Compile Include="Direction.cs" />
     <Compile Include="TrailblazerPather_VanillaPlus.cs" />
+    <Compile Include="Rules\TrailblazerRule.cs" />
+    <Compile Include="Rules\TrailblazerRule_CostMoveTicks.cs" />
+    <Compile Include="Rules\TrailblazerRule_PassabilityWater.cs" />
+    <Compile Include="Rules\TrailblazerRule_PassabilityDiagonal.cs" />
+    <Compile Include="Rules\TrailblazerRule_CostAllowedArea.cs" />
+    <Compile Include="Rules\TrailblazerRule_CostAvoidGrid.cs" />
+    <Compile Include="Rules\TrailblazerRule_CostBlueprints.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Rules\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>
