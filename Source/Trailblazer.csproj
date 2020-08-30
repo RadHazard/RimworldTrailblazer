@@ -44,8 +44,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Trailblazer.cs" />
     <Compile Include="HarmonyPatches.cs" />
+    <Compile Include="TrailblazerPather.cs" />
+    <Compile Include="Trailblazer.cs" />
+    <Compile Include="TrailblazerPather_Vanilla.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
