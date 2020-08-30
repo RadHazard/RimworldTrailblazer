@@ -119,7 +119,6 @@ namespace Trailblazer
                 int mapSizeZ = map.Size.z;
                 CellIndices cellIndices = map.cellIndices;
                 EdificeGrid edificeGrid = map.edificeGrid;
-                BlueprintGrid blueprintGrid = map.blueprintGrid;
                 PathGrid pathGrid = map.pathGrid;
 
                 Pawn pawn = traverseParms.pawn;
@@ -133,30 +132,15 @@ namespace Trailblazer
                 CellRect cellRect = CalculateDestinationRect();
                 bool destinationIsSingleCell = cellRect.Width == 1 && cellRect.Height == 1;
 
-                int[] pathGridArray = map.pathGrid.pathGrid;
-                TerrainDef[] topGrid = map.terrainGrid.topGrid;
                 int closedNodes = 0;
                 int openedNodes = 0;
 
-                bool shouldCollideWithPawns = pawn != null && PawnUtility.ShouldCollideWithPawns(pawn);
                 bool flag6 = (!passDestroyableThings && start.GetRegion(map, RegionType.Set_Passable) != null) && passWater;
                 bool alwaysTrue = !passDestroyableThings || passDestroyableThings; // TODO I don't get what this is supposed to be, but in practice it's always true
                 bool regionBasedPathing = false;
-                bool pawnDrafted = pawn?.Drafted ?? false;
                 int nodesToOpenBeforeRegionBasedPathing = (pawn?.IsColonist ?? false) ? NodesToOpenBeforeRegionBasedPathing_Colonist : NodesToOpenBeforeRegionBasedPathing_NonColonist;
                 float heuristicStrength = DetermineHeuristicStrength(pawn);
-                int moveTicksCardinal;
-                int moveTicksDiagonal;
-                if (pawn != null)
-                {
-                    moveTicksCardinal = pawn.TicksPerMoveCardinal;
-                    moveTicksDiagonal = pawn.TicksPerMoveDiagonal;
-                }
-                else
-                {
-                    moveTicksCardinal = DefaultMoveTicksCardinal;
-                    moveTicksDiagonal = DefaultMoveTicksDiagonal;
-                }
+
                 List<int> disallowedCornerIndices = CalculateDisallowedCorners(cellRect);
                 InitStatusesAndPushStartNode(ref curIndex);
                 while (true)
@@ -224,100 +208,52 @@ namespace Trailblazer
                                 if (calcGrid[neighborIndex].status != statusClosedValue || regionBasedPathing)
                                 {
                                     int cellCost = 0;
-                                    bool blockedByWall = false;
 
-                                        // TODO -- This seems to check for walls.  Later on a second check is done
-                                        // that only accounts for doors.
-                                        if (!pathGrid.WalkableFast(neighborIndex))
+
+
+                                    int neighborKnownCost = cellCost + calcGrid[curIndex].knownCost;
+                                    ushort status = calcGrid[neighborIndex].status;
+                                    if (status == statusClosedValue || status == statusOpenValue)
+                                    {
+                                        int num19 = 0;
+                                        // TODO -- why does a closed neighbor get an extra cardinal tick cost?
+                                        if (status == statusClosedValue)
                                         {
-                                            if (!passDestroyableThings)
-                                            {
-                                                continue;
-                                            }
-                                            blockedByWall = true;
-                                            cellCost += Cost_BlockedWallBase;
-                                            Building building = edificeGrid[neighborIndex];
-                                            if (building == null || !PathFinder.IsDestroyable(building))
-                                            {
-                                                continue;
-                                            }
-                                            cellCost += (int)(building.HitPoints * Cost_BlockedWallExtraPerHitPoint);
+                                            num19 = moveTicksCardinal;
                                         }
-                                        switch (i)
+                                        if (calcGrid[neighborIndex].knownCost <= neighborKnownCost + num19)
                                         {
-                                            default:
-                                                {
-                                                    if (!blockedByWall)
-                                                    {
-                                                        cellCost += pathGridArray[neighborIndex];
-                                                        cellCost += pawnDrafted ? topGrid[neighborIndex].extraDraftedPerceivedPathCost : topGrid[neighborIndex].extraNonDraftedPerceivedPathCost;
-                                                    }
-
-                                                    if (shouldCollideWithPawns && PawnUtility.AnyPawnBlockingPathAt(new IntVec3(neighborX, 0, neighborZ), pawn, false, false, true))
-                                                    {
-                                                        cellCost += Cost_PawnCollision;
-                                                    }
-                                                    Building building2 = edificeGrid[neighborIndex];
-                                                    if (building2 != null)
-                                                    {
-                                                        //PfProfilerBeginSample("Edifices"); //TODO
-                                                        int buildingCost = PathFinder.GetBuildingCost(building2, traverseParms, pawn);
-                                                        if (buildingCost == int.MaxValue)
-                                                        {
-                                                            //PfProfilerEndSample(); //TODO
-                                                            break;
-                                                        }
-                                                        cellCost += buildingCost;
-                                                        //PfProfilerEndSample(); //TODO
-                                                    }
-
-
-                                                    int neighborKnownCost = cellCost + calcGrid[curIndex].knownCost;
-                                                    ushort status = calcGrid[neighborIndex].status;
-                                                    if (status == statusClosedValue || status == statusOpenValue)
-                                                    {
-                                                        int num19 = 0;
-                                                        // TODO -- why does a closed neighbor get an extra cardinal tick cost?
-                                                        if (status == statusClosedValue)
-                                                        {
-                                                            num19 = moveTicksCardinal;
-                                                        }
-                                                        if (calcGrid[neighborIndex].knownCost <= neighborKnownCost + num19)
-                                                        {
-                                                            break;
-                                                        }
-                                                    }
-                                                    if (regionBasedPathing)
-                                                    {
-                                                        calcGrid[neighborIndex].heuristicCost = (int)Math.Round(regionCostCalculator.GetPathCostFromDestToRegion(neighborIndex) * RegionHeuristicWeightByNodesOpened.Evaluate(openedNodes));
-                                                        if (calcGrid[neighborIndex].heuristicCost < 0)
-                                                        {
-                                                            Log.ErrorOnce("Heuristic cost overflow for " + pawn.ToStringSafe() + " pathing from " + start + " to " + dest + ".", pawn.GetHashCode() ^ 0xB8DC389, false);
-                                                            calcGrid[neighborIndex].heuristicCost = 0;
-                                                        }
-                                                    }
-                                                    else if (status != statusClosedValue && status != statusOpenValue)
-                                                    {
-                                                        int dx = Math.Abs(neighborX - destX);
-                                                        int dz = Math.Abs(neighborZ - destZ);
-                                                        int octileDistance = GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
-                                                        calcGrid[neighborIndex].heuristicCost = (int)Math.Round(octileDistance * heuristicStrength);
-                                                    }
-                                                    int estimatedTotalCost = neighborKnownCost + calcGrid[neighborIndex].heuristicCost;
-                                                    if (estimatedTotalCost < 0)
-                                                    {
-                                                        Log.ErrorOnce("Node cost overflow for " + pawn.ToStringSafe() + " pathing from " + start + " to " + dest + ".", pawn.GetHashCode() ^ 0x53CB9DE, false);
-                                                        estimatedTotalCost = 0;
-                                                    }
-                                                    calcGrid[neighborIndex].parentIndex = curIndex;
-                                                    calcGrid[neighborIndex].knownCost = neighborKnownCost;
-                                                    calcGrid[neighborIndex].status = statusOpenValue;
-                                                    calcGrid[neighborIndex].costNodeCost = estimatedTotalCost;
-                                                    openedNodes++;
-                                                    openList.Push(new CostNode(neighborIndex, estimatedTotalCost));
-                                                    break;
-                                                }
+                                            break;
+                                        }
                                     }
+                                    if (regionBasedPathing)
+                                    {
+                                        calcGrid[neighborIndex].heuristicCost = (int)Math.Round(regionCostCalculator.GetPathCostFromDestToRegion(neighborIndex) * RegionHeuristicWeightByNodesOpened.Evaluate(openedNodes));
+                                        if (calcGrid[neighborIndex].heuristicCost < 0)
+                                        {
+                                            Log.ErrorOnce("Heuristic cost overflow for " + pawn.ToStringSafe() + " pathing from " + start + " to " + dest + ".", pawn.GetHashCode() ^ 0xB8DC389, false);
+                                            calcGrid[neighborIndex].heuristicCost = 0;
+                                        }
+                                    }
+                                    else if (status != statusClosedValue && status != statusOpenValue)
+                                    {
+                                        int dx = Math.Abs(neighborX - destX);
+                                        int dz = Math.Abs(neighborZ - destZ);
+                                        int octileDistance = GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
+                                        calcGrid[neighborIndex].heuristicCost = (int)Math.Round(octileDistance * heuristicStrength);
+                                    }
+                                    int estimatedTotalCost = neighborKnownCost + calcGrid[neighborIndex].heuristicCost;
+                                    if (estimatedTotalCost < 0)
+                                    {
+                                        Log.ErrorOnce("Node cost overflow for " + pawn.ToStringSafe() + " pathing from " + start + " to " + dest + ".", pawn.GetHashCode() ^ 0x53CB9DE, false);
+                                        estimatedTotalCost = 0;
+                                    }
+                                    calcGrid[neighborIndex].parentIndex = curIndex;
+                                    calcGrid[neighborIndex].knownCost = neighborKnownCost;
+                                    calcGrid[neighborIndex].status = statusOpenValue;
+                                    calcGrid[neighborIndex].costNodeCost = estimatedTotalCost;
+                                    openedNodes++;
+                                    openList.Push(new CostNode(neighborIndex, estimatedTotalCost));
                                 }
                             }
                         }

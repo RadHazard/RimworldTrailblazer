@@ -58,6 +58,9 @@
     <Compile Include="Rules\TrailblazerRule_CostAllowedArea.cs" />
     <Compile Include="Rules\TrailblazerRule_CostAvoidGrid.cs" />
     <Compile Include="Rules\TrailblazerRule_CostBlueprints.cs" />
+    <Compile Include="Rules\TrailblazerRule_CostPawns.cs" />
+    <Compile Include="Rules\TrailblazerRule_TestBuildings.cs" />
+    <Compile Include="Rules\TrailblazerRule_CostTerrain.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

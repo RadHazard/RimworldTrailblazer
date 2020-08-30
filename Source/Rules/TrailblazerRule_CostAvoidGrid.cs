@@ -4,7 +4,7 @@ using Verse;
 namespace Trailblazer.Rules
 {
     /// <summary>
-    /// Cost penalty to a square based on the AvoidGrid
+    /// Cost penalty to a cell based on the AvoidGrid
     /// </summary>
     public abstract class TrailblazerRule_CostAvoidGrid : TrailblazerRule
     {

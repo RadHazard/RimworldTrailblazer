@@ -6,7 +6,7 @@ using Verse;
 namespace Trailblazer.Rules
 {
     /// <summary>
-    /// Cost penalty to a square for the blueprints sitting on them
+    /// Cost penalty to a cell for the blueprints sitting on it
     /// </summary>
     public abstract class TrailblazerRule_CostBlueprints : TrailblazerRule
     {

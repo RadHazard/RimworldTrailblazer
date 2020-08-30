@@ -4,7 +4,7 @@ using Verse;
 namespace Trailblazer.Rules
 {
     /// <summary>
-    /// Cost penalty to a square if it's outside the allowed area of the pawn
+    /// Cost penalty to a cell if it's outside the allowed area of the pawn
     /// </summary>
     public abstract class TrailblazerRule_CostAllowedArea : TrailblazerRule
     {
