@@ -5,7 +5,6 @@ using Priority_Queue;
 using Trailblazer.Rules;
 using Verse;
 using Verse.AI;
-using System.Threading;
 
 namespace Trailblazer
 {
@@ -248,12 +247,6 @@ namespace Trailblazer
             int closedNodes = 0;
             while (rraOpenSet.Count > 0)
             {
-                //TODO DEBUG
-                //if (closedNodes > 500)
-                //{
-                //    Thread.Sleep(200);
-                //}
-
                 RegionLink currentLink = rraOpenSet.Dequeue();
 
                 // Check if we've reached our goal
@@ -261,8 +254,6 @@ namespace Trailblazer
                 {
                     return currentLink;
                 }
-
-                DebugDrawRegionNode(currentLink);
 
                 if (closedNodes > SearchLimit)
                 {
@@ -274,14 +265,19 @@ namespace Trailblazer
                 // Ignore the links that would lead to impassible regions
                 IEnumerable<RegionLink> neighbors = from region in currentLink.regions
                                                     from link in region.links
-                                                    where link.GetOtherRegion(region).Allows(pathfindData.traverseParms, false)
+                                                    let otherRegion = link.GetOtherRegion(region)
+                                                    where otherRegion.Allows(pathfindData.traverseParms, false) || otherRegion == targetRegion
                                                     where link != currentLink
                                                     select link;
 
                 foreach (RegionLink neighbor in neighbors)
                 {
                     int moveCost = DistanceBetween(currentLink, neighbor);
-                    if (moveCost < 0) Log.Error("[Trailblazer] Negative cost!");//TODO
+                    if (moveCost < 0)
+                    {
+                        Log.ErrorOnce("[Trailblazer] RRA* heuristic had negative cost!", pathfindData.GetHashCode() ^ 0x98C45AB);//TODO
+                        moveCost = 0;
+                    }
                     DebugDrawRegionEdge(currentLink, neighbor);
 
                     int newCost = rraClosedSet[currentLink] + moveCost;
@@ -293,6 +289,7 @@ namespace Trailblazer
                         {
                             rraOpenSet.UpdatePriority(neighbor, estimatedCost);
                         }
+                        DebugDrawRegionNode(neighbor);
                     }
                 }
                 closedNodes++;
@@ -409,7 +406,7 @@ namespace Trailblazer
                     else if (aMinX > bMaxX)
                     {
                         // a is strictly greater than b in the X direction
-                        dx = bMinX - aMaxX;
+                        dx = aMinX - bMaxX;
                     }
                     else
                     {
@@ -491,8 +488,10 @@ namespace Trailblazer
         {
             if (DebugViewSettings.drawPaths)
             {
-                IntVec3 cell = DebugFindLinkCenter(node);
-                FlashCell(cell, rraClosedSet[node].ToString(), 50, 0.05f);
+                foreach (IntVec3 cell in node.span.Cells)
+                {
+                    FlashCell(cell, rraClosedSet[node].ToString(), 50, 0.05f);
+                }
             }
         }
 
@@ -514,7 +513,7 @@ namespace Trailblazer
                     if (closedSet[i].visited)
                     {
                         IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
-                        string costString = string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].totalCost);
+                        string costString = string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].heuristicCost);
                         FlashCell(c, costString, 50);
                     }
                 }
