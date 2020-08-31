@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Trailblazer.Rules;
+using UnityEngine;
 using Verse;
 using Verse.AI;
 
@@ -14,12 +15,12 @@ namespace Trailblazer
     {
         private struct CostNode
         {
-            public int index;
+            public CellRef cellRef;
             public int cost;
 
-            public CostNode(int index, int cost)
+            public CostNode(CellRef cellRef, int cost)
             {
-                this.index = index;
+                this.cellRef = cellRef;
                 this.cost = cost;
             }
         }
@@ -36,8 +37,8 @@ namespace Trailblazer
         {
             public int knownCost;
             public int heuristicCost;
-            public int parentIndex;
             public int totalCost;
+            public CellRef parent;
             public bool visited;
         }
 
@@ -51,12 +52,12 @@ namespace Trailblazer
         protected class TrailblazerPathWorker_Vanilla : TrailblazerPathWorker
         {
             private readonly FastPriorityQueue<CostNode> openSet;
-            private readonly PathFinderNode[] calcGrid; // TODO - this used to be static.  Performance implications?
+            private readonly PathFinderNode[] closedSet; // TODO - this used to be static.  Performance implications?
             private readonly RegionCostCalculatorWrapper regionCostCalculator;
 
             public TrailblazerPathWorker_Vanilla(Map map, PathfindRequest pathfindRequest) : base(map, pathfindRequest)
             {
-                calcGrid = new PathFinderNode[map.Size.x * map.Size.z];
+                closedSet = new PathFinderNode[map.Size.x * map.Size.z];
                 openSet = new FastPriorityQueue<CostNode>(new CostNodeComparer());
                 regionCostCalculator = new RegionCostCalculatorWrapper(map);
             }
@@ -78,30 +79,29 @@ namespace Trailblazer
                     moveTicksDiagonal = DefaultMoveTicksDiagonal;
                 }
 
-                IntVec3 dest = pathData.dest.Cell;
-                int destIndex = CellToIndex(dest);
+                CellRef start = map.GetCellRef(pathData.start);
+                CellRef dest = map.GetCellRef(pathData.dest.Cell);
+
                 CellRect destRect = CalculateDestinationRect();
                 List<int> disallowedCornerIndices = CalculateDisallowedCorners(destRect);
                 bool destinationIsSingleCell = destRect.Width == 1 && destRect.Height == 1;
 
-                int startIndex = CellToIndex(pathData.start);
-                calcGrid[startIndex].knownCost = 0;
-                calcGrid[startIndex].heuristicCost = CalcHeuristicEstimate(pathData.start, dest, moveTicksCardinal, moveTicksDiagonal);
-                calcGrid[startIndex].totalCost = calcGrid[startIndex].heuristicCost;
-                calcGrid[startIndex].parentIndex = -1;
-                calcGrid[startIndex].visited = true;
+                closedSet[start].knownCost = 0;
+                closedSet[start].heuristicCost = CalcHeuristicEstimate(start, dest, moveTicksCardinal, moveTicksDiagonal);
+                closedSet[start].totalCost = closedSet[start].heuristicCost;
+                closedSet[start].parent = null;
+                closedSet[start].visited = true;
 
-                openSet.Push(new CostNode(startIndex, 0));
+                openSet.Push(new CostNode(start, 0));
 
                 int closedNodes = 0;
                 while (openSet.Count != 0)
                 {
-                    CostNode current = openSet.Pop();
-                    int currentIndex = current.index;
-                    IntVec3 currentCell = IndexToCell(currentIndex);
+                    CostNode currentNode = openSet.Pop();
+                    CellRef current = currentNode.cellRef;
 
                     // We've already scanned this node and found a better path to it
-                    if (current.cost > calcGrid[currentIndex].totalCost)
+                    if (currentNode.cost > closedSet[current].totalCost)
                     {
                         continue;
                     }
@@ -109,61 +109,61 @@ namespace Trailblazer
                     // Check if we've reached our goal
                     if (destinationIsSingleCell)
                     {
-                        if (currentIndex == destIndex)
+                        if (current == dest)
                         {
-                            DebugDrawRichData(currentIndex);
-                            return FinalizedPath(currentIndex);
+                            DebugDrawFinalPath(current);
+                            return FinalizedPath(current);
                         }
                     }
-                    else if (destRect.Contains(currentCell) && !disallowedCornerIndices.Contains(currentIndex))
+                    else if (destRect.Contains(current.Cell) && !disallowedCornerIndices.Contains(current.Index))
                     {
-                        DebugDrawRichData(currentIndex);
-                        return FinalizedPath(currentIndex);
+                        DebugDrawFinalPath(current);
+                        return FinalizedPath(current);
                     }
 
                     // Check if we hit the searchLimit
                     if (closedNodes > SearchLimit)
                     {
-                        Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " + dest +
-                        	" hit search limit of " + SearchLimit + " cells.", false);
-                        DebugDrawRichData();
+                        Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " +
+                            pathData.dest + " hit search limit of " + SearchLimit + " cells.", false);
+                        DebugDrawFinalPath();
                         return PawnPath.NotFound;
                     }
                     if (openSet.Count > SearchLimit)
                     {
-                        Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " + dest +
-                            " hit search limit of " + SearchLimit + " cells in the open set.", false);
-                        DebugDrawRichData();
+                        Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " +
+                            pathData.dest + " hit search limit of " + SearchLimit + " cells in the open set.", false);
+                        DebugDrawFinalPath();
                         return PawnPath.NotFound;
                     }
 
                     foreach (Direction direction in DirectionUtils.AllDirections)
                     {
-                        int neighborIndex = IndexFrom(direction, current.index);
-                        if (neighborIndex >= 0 && neighborIndex < calcGrid.Length)
+                        IntVec3 neighborCell = direction.From(current);
+                        if (neighborCell.InBounds(map))
                         {
-                            IntVec3 neighborCell = IndexToCell(neighborIndex);
-                            MoveData moveData = new MoveData(neighborCell, neighborIndex, direction);
+                            CellRef neighbor = map.GetCellRef(neighborCell);
+                            MoveData moveData = new MoveData(neighborCell, neighbor.Index, direction);
                             int? moveCost = CalcMoveCost(moveData);
                             if (moveCost == null)
                             {
                                 continue;
                             }
 
-                            int neighborNewCost = calcGrid[currentIndex].knownCost + moveCost ?? 0;
-                            if (!calcGrid[neighborIndex].visited || calcGrid[neighborIndex].knownCost > neighborNewCost)
+                            int neighborNewCost = closedSet[current].knownCost + moveCost ?? 0;
+                            if (!closedSet[neighbor].visited || closedSet[neighbor].knownCost > neighborNewCost)
                             {
-                                if (!calcGrid[neighborIndex].visited)
+                                if (!closedSet[neighbor].visited)
                                 {
-                                    calcGrid[neighborIndex].heuristicCost = CalcHeuristicEstimate(neighborCell, dest, moveTicksCardinal, moveTicksDiagonal);
-                                    calcGrid[neighborIndex].visited = true;
+                                    closedSet[neighbor].heuristicCost = CalcHeuristicEstimate(neighbor, dest, moveTicksCardinal, moveTicksDiagonal);
+                                    closedSet[neighbor].visited = true;
                                 }
 
-                                calcGrid[neighborIndex].knownCost = neighborNewCost;
-                                calcGrid[neighborIndex].totalCost = neighborNewCost + calcGrid[neighborIndex].heuristicCost;
-                                calcGrid[neighborIndex].parentIndex = currentIndex;
+                                closedSet[neighbor].knownCost = neighborNewCost;
+                                closedSet[neighbor].totalCost = neighborNewCost + closedSet[neighbor].heuristicCost;
+                                closedSet[neighbor].parent = current;
 
-                                openSet.Push(new CostNode(neighborIndex, calcGrid[neighborIndex].knownCost + calcGrid[neighborIndex].heuristicCost));
+                                openSet.Push(new CostNode(neighbor, closedSet[neighbor].knownCost + closedSet[neighbor].heuristicCost));
                             }
                         }
                     }
@@ -175,97 +175,67 @@ namespace Trailblazer
                 string faction = pawn?.Faction?.ToString() ?? "null";
                 Log.Warning(pawn + " pathing from " + pathData.start + " to " + dest + " ran out of cells to process.\n" +
                 	"Job:" + currentJob + "\nFaction: " + faction, false);
-                DebugDrawRichData();
+                DebugDrawFinalPath();
                 return PawnPath.NotFound;
             }
 
-            private IntVec3 IndexToCell(int index)
+            private int CalcHeuristicEstimate(CellRef start, CellRef end, int cardinal, int diagonal)
             {
-                return pathData.map.cellIndices.IndexToCell(index);
-            }
-
-            private int CellToIndex(IntVec3 cell)
-            {
-                return pathData.map.cellIndices.CellToIndex(cell);
-            }
-
-            private int CalcHeuristicEstimate(IntVec3 start, IntVec3 end, int cardinal, int diagonal)
-            {
-                int dx = Math.Abs(start.x - end.x);
-                int dz = Math.Abs(start.z - end.z);
+                int dx = Math.Abs(start.Cell.x - end.Cell.x);
+                int dz = Math.Abs(start.Cell.z - end.Cell.z);
                 return GenMath.OctileDistance(dx, dz, cardinal, diagonal);
             }
 
-            /// <summary>
-            /// Faster implementation of Direction.From using index math (which is map-size dependant)
-            /// </summary>
-            /// <returns>The from.</returns>
-            /// <param name="direction">Direction.</param>
-            /// <param name="index">Index.</param>
-            private int IndexFrom(Direction direction, int index)
+            private PawnPath FinalizedPath(CellRef final)
             {
-                int mapSizeX = pathData.map.Size.x;
-                switch (direction)
-                {                
-                    case Direction.N:
-                        return index + mapSizeX;
-                    case Direction.NE:
-                        return index + mapSizeX + 1;
-                    case Direction.E:
-                        return index + 1;
-                    case Direction.SE:
-                        return index - mapSizeX + 1;
-                    case Direction.S:
-                        return index - mapSizeX;
-                    case Direction.SW:
-                        return index - mapSizeX - 1;
-                    case Direction.W:
-                        return index - 1;
-                    case Direction.NW:
-                        return index + mapSizeX - 1;
-                    default:
-                        throw new Exception("Moved in an invalid direction");
+                PawnPath emptyPawnPath = pathData.map.pawnPathPool.GetEmptyPawnPath();
+                CellRef cell = final;
+                while (cell != null)
+                {
+                    emptyPawnPath.AddNode(cell);
+                    cell = closedSet[cell].parent;
                 }
+                emptyPawnPath.SetupFound(closedSet[final].knownCost, false);
+                return emptyPawnPath;
             }
 
-            private void DebugDrawRichData(int destIndex = -1)
+            static ushort debugMat = 0;
+            private void DebugDrawFinalPath(CellRef dest = null)
             {
                 if (DebugViewSettings.drawPaths)
                 {
-                    if (destIndex != -1)
+                    float debugColor = (debugMat % 100) / 100f;
+                    debugMat++;
+                    //if (destIndex != -1)
+                    //{
+                    //    int pathIndex = destIndex;
+                    //    while (pathIndex >= 0)
+                    //    {
+                    //        IntVec3 c = pathData.map.cellIndices.IndexToCell(pathIndex);
+                    //        pathData.map.debugDrawer.FlashCell(c, debugColor, calcGrid[pathIndex].knownCost.ToString(), 50);
+                    //        pathIndex = calcGrid[pathIndex].parentIndex;
+                    //    }
+                    //}
+                    int mapCells = pathData.map.Area;
+                    for (int i = 0; i < mapCells; i++)
                     {
-                        int pathIndex = destIndex;
-                        while (pathIndex >= 0)
+                        if (closedSet[i].visited)
                         {
-                            IntVec3 c = pathData.map.cellIndices.IndexToCell(pathIndex);
-                            pathData.map.debugDrawer.FlashCell(c, 0f, calcGrid[pathIndex].totalCost.ToString(), 75);
-                            pathIndex = calcGrid[pathIndex].parentIndex;
+                            IntVec3 c = pathData.map.cellIndices.IndexToCell(i);
+                            string costString = "{} / {}".Formatted(closedSet[i].knownCost, closedSet[i].totalCost);
+                            pathData.map.debugDrawer.FlashCell(c, debugColor, costString, 50);
                         }
                     }
 
                     while (openSet.Count > 0)
                     {
                         CostNode costNode = openSet.Pop();
-                        IntVec3 c = pathData.map.cellIndices.IndexToCell(costNode.index);
-                        pathData.map.debugDrawer.FlashCell(c, 0f, "open", 50);
+                        pathData.map.debugDrawer.FlashCell(costNode.cellRef, debugColor, "open", 50);
                     }
                 }
             }
 
-            // TODO ======= duplicate methods ========
-            private PawnPath FinalizedPath(int finalIndex)
-            {
-                PawnPath emptyPawnPath = pathData.map.pawnPathPool.GetEmptyPawnPath();
-                int index = finalIndex;
-                while (index >= 0)
-                {
-                    emptyPawnPath.AddNode(pathData.map.cellIndices.IndexToCell(index));
-                    index = calcGrid[index].parentIndex;
-                }
-                emptyPawnPath.SetupFound(calcGrid[finalIndex].knownCost, false);
-                return emptyPawnPath;
-            }
-
+            // TODO move these to TrailblazerPather
             private CellRect CalculateDestinationRect()
             {
                 CellRect result;
