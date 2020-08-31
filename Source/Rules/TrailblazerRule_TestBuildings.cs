@@ -29,6 +29,7 @@ namespace Trailblazer.Rules
             pathGrid = pathData.map.pathGrid;
             edificeGrid = pathData.map.edificeGrid;
             passDestroyableThings = pathData.traverseParms.mode.CanDestroy();
+            pawn = pathData.traverseParms.pawn;
 
             switch (pathData.traverseParms.mode)
             {

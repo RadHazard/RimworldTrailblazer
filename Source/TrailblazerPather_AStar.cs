@@ -91,7 +91,6 @@ namespace Trailblazer
                 calcGrid[startIndex].parentIndex = -1;
                 calcGrid[startIndex].visited = true;
 
-                openSet.Clear();
                 openSet.Push(new CostNode(startIndex, 0));
 
                 int closedNodes = 0;
@@ -130,6 +129,13 @@ namespace Trailblazer
                         DebugDrawRichData();
                         return PawnPath.NotFound;
                     }
+                    if (openSet.Count > SearchLimit)
+                    {
+                        Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " + dest +
+                            " hit search limit of " + SearchLimit + " cells in the open set.", false);
+                        DebugDrawRichData();
+                        return PawnPath.NotFound;
+                    }
 
                     foreach (Direction direction in DirectionUtils.AllDirections)
                     {
@@ -145,7 +151,7 @@ namespace Trailblazer
                             }
 
                             int neighborNewCost = calcGrid[currentIndex].knownCost + moveCost ?? 0;
-                            if (!calcGrid[neighborIndex].visited || calcGrid[neighborIndex].knownCost < neighborNewCost)
+                            if (!calcGrid[neighborIndex].visited || calcGrid[neighborIndex].knownCost > neighborNewCost)
                             {
                                 if (!calcGrid[neighborIndex].visited)
                                 {
@@ -229,7 +235,7 @@ namespace Trailblazer
                     if (destIndex != -1)
                     {
                         int pathIndex = destIndex;
-                        while (destIndex >= 0)
+                        while (pathIndex >= 0)
                         {
                             IntVec3 c = pathData.map.cellIndices.IndexToCell(pathIndex);
                             pathData.map.debugDrawer.FlashCell(c, 0f, calcGrid[pathIndex].totalCost.ToString(), 75);
@@ -253,9 +259,8 @@ namespace Trailblazer
                 int index = finalIndex;
                 while (index >= 0)
                 {
-                    int parentIndex = calcGrid[index].parentIndex;
                     emptyPawnPath.AddNode(pathData.map.cellIndices.IndexToCell(index));
-                    index = parentIndex;
+                    index = calcGrid[index].parentIndex;
                 }
                 emptyPawnPath.SetupFound(calcGrid[finalIndex].knownCost, false);
                 return emptyPawnPath;

@@ -43,7 +43,7 @@ namespace Trailblazer
     [HarmonyPatch("FindPath", new Type[] { typeof(IntVec3), typeof(LocalTargetInfo), typeof(TraverseParms), typeof(PathEndMode) })]
     static class Patch_PathFinder_FindPath
     {
-        static void Prefix(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode, Map ___map, ref PawnPath __result)
+        static bool Prefix(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode, Map ___map, ref PawnPath __result)
         {
             Log.Message("Blazin' a trail");
             if (DebugSettings.pathThroughWalls)
@@ -80,6 +80,7 @@ namespace Trailblazer
 
             //TODO this might be threadable
             __result = new TrailblazerPather_AStar(___map).FindPath(start, dest, traverseParms, peMode);
+            return false;
         }
     }
 }
