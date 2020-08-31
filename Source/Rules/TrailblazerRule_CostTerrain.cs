@@ -27,7 +27,7 @@ namespace Trailblazer.Rules
 
         public override int? GetConstantCost(MoveData moveData)
         {
-            if (!pathGrid.WalkableFast(moveData.cell.Index))
+            if (pathGrid.WalkableFast(moveData.cell.Index))
             {
                 int cellCost = pathGrid.pathGrid[moveData.cell];
                 cellCost += pawnDrafted ? terrainGrid.topGrid[moveData.cell].extraDraftedPerceivedPathCost
