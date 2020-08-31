@@ -17,18 +17,6 @@ namespace Trailblazer
             Log.Message("Trailblazer: Patching pathfinder");
         }
     }
-
-    //[HarmonyPatch(typeof(Map), "ConstructComponents")]
-    //static class Patch_Map_ConstructComponents
-    //{
-    //    static void Postfix(Map __instance)
-    //    {
-    //        Log.Message("Hackin' pathfinder");
-    //        __instance.pathFinder = new Trailblazer(__instance);
-    //    }
-    //}
-
-
         //TODO drop the main body of this into Trailblazer and just keep this patch minimal
     /// <summary>
     /// Stub that replaces the vanilla pathfind method. Performs error checking, then creates a TrailblazerPather
@@ -45,7 +33,6 @@ namespace Trailblazer
     {
         static bool Prefix(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode, Map ___map, ref PawnPath __result)
         {
-            Log.Message("Blazin' a trail");
             if (DebugSettings.pathThroughWalls)
             {
                 traverseParms.mode = TraverseMode.PassAllDestroyableThings;

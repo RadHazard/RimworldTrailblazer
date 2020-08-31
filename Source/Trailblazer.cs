@@ -19,8 +19,24 @@ namespace Trailblazer
         }
 
         /// <summary>
-        /// Stub that replaces the vanilla pathfind method Performs error checking, then creates a TrailblazerPather
-        /// to perform the actual pathfinding
+        /// Stub that replaces the vanilla pathfind method. Performs error checking, then creates a TrailblazerPather
+        /// to perform the actual pathfinding.
+        /// </summary>
+        /// <returns>The path.</returns>
+        /// <param name="start">Start.</param>
+        /// <param name="dest">Destination.</param>
+        /// <param name="pawn">Pawn.</param>
+        /// <param name="peMode">Pe mode.</param>
+        public new PawnPath FindPath(IntVec3 start, LocalTargetInfo dest, Pawn pawn, PathEndMode peMode = PathEndMode.OnCell)
+        {
+            bool canBash = pawn?.CurJob?.canBash ?? false;
+            return FindPath(start, dest, TraverseParms.For(pawn, Danger.Deadly, TraverseMode.ByPawn, canBash), peMode);
+        }
+
+
+        /// <summary>
+        /// Stub that replaces the vanilla pathfind method. Performs error checking, then creates a TrailblazerPather
+        /// to perform the actual pathfinding.
         /// </summary>
         /// <returns>The path.</returns>
         /// <param name="start">Start.</param>
