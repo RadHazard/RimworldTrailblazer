@@ -95,7 +95,7 @@ namespace Trailblazer
                 }
 
                 // Check if we've reached our goal
-                else if (pathfindData.CellIsInDestination(current))
+                if (pathfindData.CellIsInDestination(current))
                 {
                     DebugDrawFinalPath(current);
                     return FinalizedPath(current);

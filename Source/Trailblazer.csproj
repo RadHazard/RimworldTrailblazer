@@ -45,6 +45,9 @@
       <HintPath>..\..\..\..\..\..\mnt\electromagic\SteamLibrary\steamapps\common\RimWorld\RimWorldLinux_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="PriorityQueue">
+      <HintPath>packages\OptimizedPriorityQueue.5.0.0\lib\net45\PriorityQueue.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -68,6 +71,7 @@
     <Compile Include="CellRef.cs" />
     <Compile Include="PathfindData.cs" />
     <Compile Include="MoveData.cs" />
+    <Compile Include="TrailblazerPather_HAStar.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
