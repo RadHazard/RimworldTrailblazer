@@ -5,6 +5,7 @@ using Priority_Queue;
 using Trailblazer.Rules;
 using Verse;
 using Verse.AI;
+using System.Threading;
 
 namespace Trailblazer
 {
@@ -247,6 +248,12 @@ namespace Trailblazer
             int closedNodes = 0;
             while (rraOpenSet.Count > 0)
             {
+                //TODO DEBUG
+                //if (closedNodes > 500)
+                //{
+                //    Thread.Sleep(200);
+                //}
+
                 RegionLink currentLink = rraOpenSet.Dequeue();
 
                 // Check if we've reached our goal
@@ -263,17 +270,18 @@ namespace Trailblazer
                     return null;
                 }
 
-                // Get the list of neighboring links.  Links are considered to share an edge if their shared
-                // region is passible.
+                // Get the list of neighboring links.  Links are considered to share an edge if they share a region.
+                // Ignore the links that would lead to impassible regions
                 IEnumerable<RegionLink> neighbors = from region in currentLink.regions
-                                                    where region.Allows(pathfindData.traverseParms, false)
                                                     from link in region.links
+                                                    where link.GetOtherRegion(region).Allows(pathfindData.traverseParms, false)
                                                     where link != currentLink
                                                     select link;
 
                 foreach (RegionLink neighbor in neighbors)
                 {
                     int moveCost = DistanceBetween(currentLink, neighbor);
+                    if (moveCost < 0) Log.Error("[Trailblazer] Negative cost!");//TODO
                     DebugDrawRegionEdge(currentLink, neighbor);
 
                     int newCost = rraClosedSet[currentLink] + moveCost;
@@ -467,14 +475,24 @@ namespace Trailblazer
 
         private void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
         {
-            pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, "open", 50);
+            pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, text, duration);
+        }
+
+        private IntVec3 DebugFindLinkCenter(RegionLink link)
+        {
+            if (link.span.dir == SpanDirection.North)
+            {
+                return link.span.root + new IntVec3(0, 0, link.span.length / 2);
+            }
+            return link.span.root + new IntVec3(link.span.length / 2, 0, 0);
         }
 
         private void DebugDrawRegionNode(RegionLink node)
         {
             if (DebugViewSettings.drawPaths)
             {
-                FlashCell(node.span.root, "Heuristic", 50, 0.05f);
+                IntVec3 cell = DebugFindLinkCenter(node);
+                FlashCell(cell, rraClosedSet[node].ToString(), 50, 0.05f);
             }
         }
 
@@ -482,7 +500,7 @@ namespace Trailblazer
         {
             if (DebugViewSettings.drawPaths)
             {
-                pathfindData.map.debugDrawer.FlashLine(nodeA.span.root, nodeB.span.root);
+                pathfindData.map.debugDrawer.FlashLine(DebugFindLinkCenter(nodeA), DebugFindLinkCenter(nodeB));
             }
         }
 
