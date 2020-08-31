@@ -15,7 +15,7 @@ namespace Trailblazer.Rules
         protected readonly BlueprintGrid blueprintGrid;
         protected readonly Pawn pawn;
 
-        public TrailblazerRule_CostBlueprints(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostBlueprints(PathfindData pathData) : base(pathData)
         {
             blueprintGrid = pathData.map.blueprintGrid;
 
@@ -28,7 +28,7 @@ namespace Trailblazer.Rules
 
         public override int? GetConstantCost(MoveData moveData)
         {
-            List<Blueprint> list = blueprintGrid.InnerArray[moveData.cellIndex];
+            List<Blueprint> list = blueprintGrid.InnerArray[moveData.cell.Index];
             if (list != null)
             {
                 return (from blueprint in list

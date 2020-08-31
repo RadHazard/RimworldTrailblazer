@@ -24,7 +24,7 @@ namespace Trailblazer.Rules
         protected readonly Pawn pawn;
         protected Func<Building_Door, int> doorHandler;
 
-        public TrailblazerRule_TestBuildings(PathData pathData) : base(pathData)
+        public TrailblazerRule_TestBuildings(PathfindData pathData) : base(pathData)
         {
             pathGrid = pathData.map.pathGrid;
             edificeGrid = pathData.map.edificeGrid;
@@ -102,9 +102,9 @@ namespace Trailblazer.Rules
         public override int? GetConstantCost(MoveData moveData)
         {
             int moveCost = 0;
-            Building building = edificeGrid[moveData.cellIndex];
+            Building building = edificeGrid[moveData.cell.Index];
 
-            if (!pathGrid.WalkableFast(moveData.cellIndex))
+            if (!pathGrid.WalkableFast(moveData.cell.Index))
             {
                 if (!passDestroyableThings || building == null || !PathFinder.IsDestroyable(building))
                 {

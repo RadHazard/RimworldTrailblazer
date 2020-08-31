@@ -10,7 +10,7 @@ namespace Trailblazer.Rules
     {
         protected readonly ByteGrid avoidGrid;
 
-        public TrailblazerRule_CostAvoidGrid(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostAvoidGrid(PathfindData pathData) : base(pathData)
         {
             avoidGrid = pathData.traverseParms.pawn?.GetAvoidGrid(true);
         }
@@ -24,7 +24,7 @@ namespace Trailblazer.Rules
         {
             // NOTE
             // For some reason vanilla multiplies this value by 8
-            return avoidGrid[moveData.cellIndex] * 8;
+            return avoidGrid[moveData.cell.Index] * 8;
         }
     }
 }

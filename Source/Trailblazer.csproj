@@ -66,6 +66,8 @@
     <Compile Include="Rules\TrailblazerRule_CostTerrain.cs" />
     <Compile Include="TrailblazerPather_AStar.cs" />
     <Compile Include="CellRef.cs" />
+    <Compile Include="PathfindData.cs" />
+    <Compile Include="MoveData.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -12,7 +12,7 @@ namespace Trailblazer.Rules
 
         protected readonly Pawn pawn;
 
-        public TrailblazerRule_CostPawns(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostPawns(PathfindData pathData) : base(pathData)
         {
             pawn = pathData.traverseParms.pawn;
         }

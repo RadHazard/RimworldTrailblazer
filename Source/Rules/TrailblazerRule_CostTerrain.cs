@@ -17,7 +17,7 @@ namespace Trailblazer.Rules
         protected readonly TerrainGrid terrainGrid;
         protected readonly bool pawnDrafted;
 
-        public TrailblazerRule_CostTerrain(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostTerrain(PathfindData pathData) : base(pathData)
         {
             pathGrid = pathData.map.pathGrid;
             terrainGrid = pathData.map.terrainGrid;
@@ -27,11 +27,11 @@ namespace Trailblazer.Rules
 
         public override int? GetConstantCost(MoveData moveData)
         {
-            if (!pathGrid.WalkableFast(moveData.cellIndex))
+            if (!pathGrid.WalkableFast(moveData.cell.Index))
             {
-                int cellCost = pathGrid.pathGrid[moveData.cellIndex];
-                cellCost += pawnDrafted ? terrainGrid.topGrid[moveData.cellIndex].extraDraftedPerceivedPathCost
-                        : terrainGrid.topGrid[moveData.cellIndex].extraNonDraftedPerceivedPathCost;
+                int cellCost = pathGrid.pathGrid[moveData.cell];
+                cellCost += pawnDrafted ? terrainGrid.topGrid[moveData.cell].extraDraftedPerceivedPathCost
+                        : terrainGrid.topGrid[moveData.cell].extraNonDraftedPerceivedPathCost;
 
                 return cellCost;
             }

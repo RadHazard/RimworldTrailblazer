@@ -1,42 +1,5 @@
-﻿using Verse;
-using Verse.AI;
-
-namespace Trailblazer.Rules
+﻿namespace Trailblazer.Rules
 {
-    public struct PathData
-    {
-        public readonly Map map;
-        public readonly IntVec3 start;
-        public readonly LocalTargetInfo dest;
-        public readonly TraverseParms traverseParms;
-        public readonly PathEndMode pathEndMode;
-
-        public PathData(Map map, IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode pathEndMode)
-        {
-            this.map = map;
-            this.start = start;
-            this.dest = dest;
-            this.traverseParms = traverseParms;
-            this.pathEndMode = pathEndMode;
-        }
-    }
-
-    public struct MoveData
-    {
-        public readonly IntVec3 cell;
-        public readonly int cellIndex;
-        public readonly Direction enterDirection;
-        public readonly bool diagonal;
-
-        public MoveData(IntVec3 cell, int cellIndex, Direction enterDirection)
-        {
-            this.cell = cell;
-            this.cellIndex = cellIndex;
-            this.enterDirection = enterDirection;
-            this.diagonal = enterDirection.IsDiagonal();
-        }
-    }
-
     /// <summary>
     /// A rule for the Trailblazer pathfinding engine.  Rules define what cells are considered passible and how
     /// costly the pathfinder considers them to be.
@@ -52,7 +15,7 @@ namespace Trailblazer.Rules
     /// </summary>
     public abstract class TrailblazerRule
     {
-        protected readonly PathData pathData;
+        protected readonly PathfindData pathData;
 
         /// <summary>
         /// Trailblazer constructs a new version of all rules for each given pathfinding request, then queries that rule
@@ -60,7 +23,7 @@ namespace Trailblazer.Rules
         /// that only needs to happen once per path to minimize the work done in GetConstantCost and GetCostMultiplier.
         /// </summary>
         /// <param name="pathData">Path data.</param>
-        protected TrailblazerRule(PathData pathData)
+        protected TrailblazerRule(PathfindData pathData)
         {
             this.pathData = pathData;
         }

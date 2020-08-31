@@ -29,22 +29,6 @@ namespace Trailblazer
         protected const int Cost_OutsideAllowedArea = 600;
         protected const int Cost_PawnCollision = 175;
 
-        protected struct PathfindRequest
-        {
-            public readonly IntVec3 start;
-            public readonly LocalTargetInfo dest;
-            public readonly TraverseParms traverseParms;
-            public readonly PathEndMode pathEndMode;
-
-            public PathfindRequest(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode pathEndMode)
-            {
-                this.start = start;
-                this.dest = dest;
-                this.traverseParms = traverseParms;
-                this.pathEndMode = pathEndMode;
-            }
-        }
-
         protected struct PathCostData
         {
             public readonly TraverseMode traverseMode;
@@ -65,11 +49,12 @@ namespace Trailblazer
         public PawnPath FindPath(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode pathEndMode)
         {
             //TODO add threading once this is all worked out
-            PathfindRequest pathfindRequest = new PathfindRequest(start, dest, traverseParms, pathEndMode);
-            return GetWorker(pathfindRequest).FindPath();
+            PathfindData pathfindData = new PathfindData(map, map.GetCellRef(start), dest, traverseParms, pathEndMode);
+            return GetWorker(pathfindData).FindPath();
         }
 
-        protected abstract TrailblazerPathWorker GetWorker(PathfindRequest pathfindRequest);
+        //TODO - do we need the second layer of abstraction of workers?  It seems like it might be overengineered
+        protected abstract TrailblazerPathWorker GetWorker(PathfindData pathfindData);
 
 
         /// <summary>
@@ -79,7 +64,7 @@ namespace Trailblazer
         protected abstract class TrailblazerPathWorker
         {
             //TODO - this list needs to be extensible
-            protected static readonly List<Func<PathData, TrailblazerRule>> ruleFactories = new List<Func<PathData, TrailblazerRule>>
+            protected static readonly List<Func<PathfindData, TrailblazerRule>> ruleFactories = new List<Func<PathfindData, TrailblazerRule>>
             {
                 r => new TrailblazerRule_PassabilityWater(r),
                 r => new TrailblazerRule_PassabilityDiagonal(r),
@@ -92,14 +77,14 @@ namespace Trailblazer
                 r => new TrailblazerRule_CostTerrain(r)
             };
 
-            protected readonly PathData pathData;
+            protected readonly PathfindData pathfindData;
             protected readonly List<TrailblazerRule> rules;
 
-            protected TrailblazerPathWorker(Map map, PathfindRequest pathfindRequest)
+            protected TrailblazerPathWorker(PathfindData pathfindData)
             {
-                pathData = new PathData(map, pathfindRequest.start, pathfindRequest.dest, pathfindRequest.traverseParms, pathfindRequest.pathEndMode);
+                this.pathfindData = pathfindData;
                 rules = (from factory in ruleFactories
-                         let rule = factory.Invoke(pathData)
+                         let rule = factory.Invoke(this.pathfindData)
                          where rule.Applies()
                          select rule).ToList();
             }

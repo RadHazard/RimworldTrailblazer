@@ -44,34 +44,32 @@ namespace Trailblazer
 
         public TrailblazerPather_AStar(Map map) : base(map) { }
 
-        protected override TrailblazerPathWorker GetWorker(PathfindRequest pathfindRequest)
+        protected override TrailblazerPathWorker GetWorker(PathfindData pathfindData)
         {
-            return new TrailblazerPathWorker_Vanilla(map, pathfindRequest);
+            return new TrailblazerPathWorker_AStar(pathfindData);
         }
 
-        protected class TrailblazerPathWorker_Vanilla : TrailblazerPathWorker
+        protected class TrailblazerPathWorker_AStar : TrailblazerPathWorker
         {
             private readonly FastPriorityQueue<CostNode> openSet;
             private readonly PathFinderNode[] closedSet; // TODO - this used to be static.  Performance implications?
-            private readonly RegionCostCalculatorWrapper regionCostCalculator;
 
-            public TrailblazerPathWorker_Vanilla(Map map, PathfindRequest pathfindRequest) : base(map, pathfindRequest)
+            public TrailblazerPathWorker_AStar(PathfindData pathfindData) : base(pathfindData)
             {
-                closedSet = new PathFinderNode[map.Size.x * map.Size.z];
+                closedSet = new PathFinderNode[pathfindData.map.Area];
                 openSet = new FastPriorityQueue<CostNode>(new CostNodeComparer());
-                regionCostCalculator = new RegionCostCalculatorWrapper(map);
             }
 
             public override PawnPath FindPath()
             {
-                Map map = pathData.map;
+                Map map = pathfindData.map;
 
                 int moveTicksCardinal;
                 int moveTicksDiagonal;
-                if (pathData.traverseParms.pawn != null)
+                if (pathfindData.traverseParms.pawn != null)
                 {
-                    moveTicksCardinal = pathData.traverseParms.pawn.TicksPerMoveCardinal;
-                    moveTicksDiagonal = pathData.traverseParms.pawn.TicksPerMoveDiagonal;
+                    moveTicksCardinal = pathfindData.traverseParms.pawn.TicksPerMoveCardinal;
+                    moveTicksDiagonal = pathfindData.traverseParms.pawn.TicksPerMoveDiagonal;
                 }
                 else
                 {
@@ -79,8 +77,8 @@ namespace Trailblazer
                     moveTicksDiagonal = DefaultMoveTicksDiagonal;
                 }
 
-                CellRef start = map.GetCellRef(pathData.start);
-                CellRef dest = map.GetCellRef(pathData.dest.Cell);
+                CellRef start = pathfindData.start;
+                CellRef dest = map.GetCellRef(pathfindData.dest.Cell);
 
                 CellRect destRect = CalculateDestinationRect();
                 List<int> disallowedCornerIndices = CalculateDisallowedCorners(destRect);
@@ -124,15 +122,15 @@ namespace Trailblazer
                     // Check if we hit the searchLimit
                     if (closedNodes > SearchLimit)
                     {
-                        Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " +
-                            pathData.dest + " hit search limit of " + SearchLimit + " cells.", false);
+                        Log.Warning(pathfindData.traverseParms.pawn + " pathing from " + pathfindData.start + " to " +
+                            pathfindData.dest + " hit search limit of " + SearchLimit + " cells.", false);
                         DebugDrawFinalPath();
                         return PawnPath.NotFound;
                     }
                     if (openSet.Count > SearchLimit)
                     {
-                        Log.Warning(pathData.traverseParms.pawn + " pathing from " + pathData.start + " to " +
-                            pathData.dest + " hit search limit of " + SearchLimit + " cells in the open set.", false);
+                        Log.Warning(pathfindData.traverseParms.pawn + " pathing from " + pathfindData.start + " to " +
+                            pathfindData.dest + " hit search limit of " + SearchLimit + " cells in the open set.", false);
                         DebugDrawFinalPath();
                         return PawnPath.NotFound;
                     }
@@ -143,7 +141,7 @@ namespace Trailblazer
                         if (neighborCell.InBounds(map))
                         {
                             CellRef neighbor = map.GetCellRef(neighborCell);
-                            MoveData moveData = new MoveData(neighborCell, neighbor.Index, direction);
+                            MoveData moveData = new MoveData(neighbor, direction);
                             int? moveCost = CalcMoveCost(moveData);
                             if (moveCost == null)
                             {
@@ -170,10 +168,10 @@ namespace Trailblazer
                     closedNodes++;
                 }
 
-                Pawn pawn = pathData.traverseParms.pawn;
+                Pawn pawn = pathfindData.traverseParms.pawn;
                 string currentJob = pawn?.CurJob?.ToString() ?? "null";
                 string faction = pawn?.Faction?.ToString() ?? "null";
-                Log.Warning(pawn + " pathing from " + pathData.start + " to " + dest + " ran out of cells to process.\n" +
+                Log.Warning(pawn + " pathing from " + pathfindData.start + " to " + dest + " ran out of cells to process.\n" +
                 	"Job:" + currentJob + "\nFaction: " + faction, false);
                 DebugDrawFinalPath();
                 return PawnPath.NotFound;
@@ -188,7 +186,7 @@ namespace Trailblazer
 
             private PawnPath FinalizedPath(CellRef final)
             {
-                PawnPath emptyPawnPath = pathData.map.pawnPathPool.GetEmptyPawnPath();
+                PawnPath emptyPawnPath = pathfindData.map.pawnPathPool.GetEmptyPawnPath();
                 CellRef cell = final;
                 while (cell != null)
                 {
@@ -216,21 +214,21 @@ namespace Trailblazer
                     //        pathIndex = calcGrid[pathIndex].parentIndex;
                     //    }
                     //}
-                    int mapCells = pathData.map.Area;
+                    int mapCells = pathfindData.map.Area;
                     for (int i = 0; i < mapCells; i++)
                     {
                         if (closedSet[i].visited)
                         {
-                            IntVec3 c = pathData.map.cellIndices.IndexToCell(i);
+                            IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
                             string costString = "{} / {}".Formatted(closedSet[i].knownCost, closedSet[i].totalCost);
-                            pathData.map.debugDrawer.FlashCell(c, debugColor, costString, 50);
+                            pathfindData.map.debugDrawer.FlashCell(c, debugColor, costString, 50);
                         }
                     }
 
                     while (openSet.Count > 0)
                     {
                         CostNode costNode = openSet.Pop();
-                        pathData.map.debugDrawer.FlashCell(costNode.cellRef, debugColor, "open", 50);
+                        pathfindData.map.debugDrawer.FlashCell(costNode.cellRef, debugColor, "open", 50);
                     }
                 }
             }
@@ -239,16 +237,16 @@ namespace Trailblazer
             private CellRect CalculateDestinationRect()
             {
                 CellRect result;
-                if (pathData.dest.HasThing && pathData.pathEndMode != PathEndMode.OnCell)
+                if (pathfindData.dest.HasThing && pathfindData.pathEndMode != PathEndMode.OnCell)
                 {
-                    result = pathData.dest.Thing.OccupiedRect();
+                    result = pathfindData.dest.Thing.OccupiedRect();
                 }
                 else
                 {
-                    result = CellRect.SingleCell(pathData.dest.Cell);
+                    result = CellRect.SingleCell(pathfindData.dest.Cell);
                 }
 
-                if (pathData.pathEndMode == PathEndMode.Touch)
+                if (pathfindData.pathEndMode == PathEndMode.Touch)
                 {
                     result = result.ExpandedBy(1);
                 }
@@ -258,7 +256,7 @@ namespace Trailblazer
             private List<int> CalculateDisallowedCorners(CellRect destinationRect)
             {
                 List<int> disallowedCornerIndices = new List<int>(4);
-                if (pathData.pathEndMode == PathEndMode.Touch)
+                if (pathfindData.pathEndMode == PathEndMode.Touch)
                 {
                     int minX = destinationRect.minX;
                     int minZ = destinationRect.minZ;
@@ -266,19 +264,19 @@ namespace Trailblazer
                     int maxZ = destinationRect.maxZ;
                     if (!IsCornerTouchAllowed(minX + 1, minZ + 1, minX + 1, minZ, minX, minZ + 1))
                     {
-                        disallowedCornerIndices.Add(pathData.map.cellIndices.CellToIndex(minX, minZ));
+                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(minX, minZ));
                     }
                     if (!IsCornerTouchAllowed(minX + 1, maxZ - 1, minX + 1, maxZ, minX, maxZ - 1))
                     {
-                        disallowedCornerIndices.Add(pathData.map.cellIndices.CellToIndex(minX, maxZ));
+                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(minX, maxZ));
                     }
                     if (!IsCornerTouchAllowed(maxX - 1, maxZ - 1, maxX - 1, maxZ, maxX, maxZ - 1))
                     {
-                        disallowedCornerIndices.Add(pathData.map.cellIndices.CellToIndex(maxX, maxZ));
+                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(maxX, maxZ));
                     }
                     if (!IsCornerTouchAllowed(maxX - 1, minZ + 1, maxX - 1, minZ, maxX, minZ + 1))
                     {
-                        disallowedCornerIndices.Add(pathData.map.cellIndices.CellToIndex(maxX, minZ));
+                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(maxX, minZ));
                     }
                 }
                 return disallowedCornerIndices;
@@ -286,7 +284,7 @@ namespace Trailblazer
 
             private bool IsCornerTouchAllowed(int cornerX, int cornerZ, int adjCardinal1X, int adjCardinal1Z, int adjCardinal2X, int adjCardinal2Z)
             {
-                return TouchPathEndModeUtility.IsCornerTouchAllowed(cornerX, cornerZ, adjCardinal1X, adjCardinal1Z, adjCardinal2X, adjCardinal2Z, pathData.map);
+                return TouchPathEndModeUtility.IsCornerTouchAllowed(cornerX, cornerZ, adjCardinal1X, adjCardinal1Z, adjCardinal2X, adjCardinal2Z, pathfindData.map);
             }
         }
     }

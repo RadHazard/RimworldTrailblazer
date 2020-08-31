@@ -12,7 +12,7 @@ namespace Trailblazer.Rules
 
         protected readonly Area allowedArea;
 
-        public TrailblazerRule_CostAllowedArea(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostAllowedArea(PathfindData pathData) : base(pathData)
         {
             Pawn pawn = pathData.traverseParms.pawn;
 
@@ -36,7 +36,7 @@ namespace Trailblazer.Rules
 
         public override int? GetConstantCost(MoveData moveData)
         {
-            if (!allowedArea[moveData.cellIndex])
+            if (!allowedArea[moveData.cell.Index])
             {
                 return Cost_OutsideAllowedArea;
             }

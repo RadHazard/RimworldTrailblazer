@@ -12,7 +12,7 @@ namespace Trailblazer.Rules
         protected readonly int moveTicksCardinal;
         protected readonly int moveTicksDiagonal;
 
-        public TrailblazerRule_CostMoveTicks(PathData pathData) : base(pathData)
+        public TrailblazerRule_CostMoveTicks(PathfindData pathData) : base(pathData)
         {
 
             if (pathData.traverseParms.pawn != null)

@@ -9,7 +9,7 @@ namespace Trailblazer.Rules
     public class TrailblazerRule_PassabilityDiagonal : TrailblazerRule
     {
 
-        public TrailblazerRule_PassabilityDiagonal(PathData pathData) : base(pathData) { }
+        public TrailblazerRule_PassabilityDiagonal(PathfindData pathData) : base(pathData) { }
 
         public override int? GetConstantCost(MoveData moveData)
         {

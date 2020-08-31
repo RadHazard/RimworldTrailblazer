@@ -53,16 +53,20 @@ namespace Trailblazer
 
         public static bool operator ==(CellRef a, CellRef b)
         {
-            if (a != null)
+            if (!(a is null))
             {
                 return a.Equals(b);
             }
-            return b == null;
+            return b is null;
         }
 
         public static bool operator !=(CellRef a, CellRef b)
         {
-            return !(a == b);
+            if (!(a is null))
+            {
+                return !a.Equals(b);
+            }
+            return !(b is null);
         }
 
         public override int GetHashCode()

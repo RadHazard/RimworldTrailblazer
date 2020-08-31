@@ -9,7 +9,7 @@ namespace Trailblazer.Rules
     {
         protected readonly bool active;
 
-        public TrailblazerRule_PassabilityWater(PathData pathData) : base(pathData)
+        public TrailblazerRule_PassabilityWater(PathfindData pathData) : base(pathData)
         {
             active = !pathData.traverseParms.mode.CanPassWater();
         }
@@ -21,7 +21,7 @@ namespace Trailblazer.Rules
 
         public override int? GetConstantCost(MoveData moveData)
         {
-            if (moveData.cell.GetTerrain(pathData.map).HasTag("Water"))
+            if (moveData.cell.Cell.GetTerrain(pathData.map).HasTag("Water"))
             {
                 return null;
             }
