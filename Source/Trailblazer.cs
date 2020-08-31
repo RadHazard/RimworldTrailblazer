@@ -49,7 +49,7 @@ namespace Trailblazer
             }
 
             PathfindData pathfindData = new PathfindData(map, map.GetCellRef(start), dest, traverseParms, peMode);
-            return new TrailblazerPather_AStar(pathfindData).FindPath(); //TODO allow swapping out pathers for debugging
+            return new TrailblazerPather_HAStar(pathfindData).FindPath(); //TODO allow swapping out pathers for debugging
         }
     }
 }

@@ -27,41 +27,45 @@ namespace Trailblazer
             public bool visited;
         }
 
-        private class LinkOrCell
+        /// <summary>
+        /// RegionLink wrapper that implements GetHashCode and Equals
+        /// </summary>
+        private class LinkNode
         {
             public readonly RegionLink link;
-            public readonly CellRef cell;
 
-            public LinkOrCell(RegionLink link)
+            public LinkNode(RegionLink link)
             {
                 this.link = link;
-                cell = null;
             }
 
-            public LinkOrCell(CellRef cell)
+            public static implicit operator RegionLink(LinkNode node)
             {
-                link = null;
-                this.cell = cell;
+                return node.link;
             }
 
-            public CellRect GetRect()
+            public static implicit operator LinkNode(RegionLink link)
             {
-                if (link != null)
+                return new LinkNode(link);
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is LinkNode)
                 {
-                    IntVec3 root = link.span.root;
-                    int maxX = root.x;
-                    int maxZ = root.z;
-                    if (link.span.dir == SpanDirection.North)
-                    {
-                        maxZ += link.span.length;
-                    }
-                    else
-                    {
-                        maxX += link.span.length;
-                    }
-                    return CellRect.FromLimits(root.x, root.z, maxX, maxZ);
+                    return Equals((LinkNode)obj);
                 }
-                return CellRect.SingleCell(cell);
+                return false;
+            }
+
+            public bool Equals(LinkNode linkNode)
+            {
+                return link.UniqueHashCode() == linkNode.link.UniqueHashCode();
+            }
+
+            public override int GetHashCode()
+            {
+                return (int)link.UniqueHashCode();
             }
         }
 
@@ -72,14 +76,17 @@ namespace Trailblazer
         private readonly CellRef destCell;
 
         // RRA* params
-        private SimplePriorityQueue<RegionLink, int> rraOpenSet;
-        private readonly Dictionary<ulong, int> rraClosedSet;
+        private SimplePriorityQueue<LinkNode, int> rraOpenSet;
+        private readonly Dictionary<LinkNode, int> rraClosedSet;
         private readonly RegionGrid regionGrid;
         private readonly List<Region> destRegions;
 
         // Shared params
         private readonly int moveTicksCardinal;
         private readonly int moveTicksDiagonal;
+
+        // Debug
+        private static ushort debugMat = 0;
 
         public TrailblazerPather_HAStar(PathfindData pathfindData) : base(pathfindData)
         {
@@ -88,8 +95,8 @@ namespace Trailblazer
             startCell = pathfindData.start;
             destCell = pathfindData.map.GetCellRef(pathfindData.dest.Cell);
 
-            rraOpenSet = new SimplePriorityQueue<RegionLink, int>();
-            rraClosedSet = new Dictionary<ulong, int>();
+            rraOpenSet = new SimplePriorityQueue<LinkNode, int>();
+            rraClosedSet = new Dictionary<LinkNode, int>();
             regionGrid = pathfindData.map.regionGrid;
             destRegions = (from cell in pathfindData.DestRect.Cells
                            let region = regionGrid.GetValidRegionAt_NoRebuild(cell)
@@ -105,6 +112,8 @@ namespace Trailblazer
                 moveTicksCardinal = TrailblazerRule_CostMoveTicks.DefaultMoveTicksCardinal;
                 moveTicksDiagonal = TrailblazerRule_CostMoveTicks.DefaultMoveTicksDiagonal;
             }
+
+            debugMat++;
         }
 
         public override PawnPath FindPath()
@@ -114,7 +123,7 @@ namespace Trailblazer
             {
                 foreach (RegionLink link in region.links)
                 {
-                    rraClosedSet[link.UniqueHashCode()] = DistanceBetween(link, destCell);
+                    rraClosedSet[link] = DistanceBetween(link, destCell);
                     rraOpenSet.Enqueue(link, 0);
                 }
             }
@@ -138,15 +147,15 @@ namespace Trailblazer
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
                 {
-                    DebugDrawFinalPath(current);
+                    DebugDrawFinalPath();
                     return FinalizedPath(current);
                 }
 
                 // Check if we hit the searchLimit
                 if (closedNodes > SearchLimit)
                 {
-                    Log.Warning(pathfindData.traverseParms.pawn + " pathing from " + startCell + " to " +
-                        destCell + " hit search limit of " + SearchLimit + " cells.", false);
+                    Log.Warning("[Trailblazer] " + pathfindData.traverseParms.pawn + " pathing from " + startCell +
+                        " to " + destCell + " hit search limit of " + SearchLimit + " cells.", false);
                     DebugDrawFinalPath();
                     return PawnPath.NotFound;
                 }
@@ -190,8 +199,8 @@ namespace Trailblazer
             Pawn pawn = pathfindData.traverseParms.pawn;
             string currentJob = pawn?.CurJob?.ToString() ?? "null";
             string faction = pawn?.Faction?.ToString() ?? "null";
-            Log.Warning(pawn + " pathing from " + startCell + " to " + destCell + " ran out of cells to process.\n" +
-            	"Job:" + currentJob + "\nFaction: " + faction, false);
+            Log.Warning("[Trailblazer] " + pawn + " pathing from " + startCell + " to " + destCell +
+                " ran out of cells to process.\n" + "Job:" + currentJob + "\nFaction: " + faction, false);
             DebugDrawFinalPath();
             return PawnPath.NotFound;
         }
@@ -200,7 +209,7 @@ namespace Trailblazer
         {
             Region region = regionGrid.GetValidRegionAt_NoRebuild(cell);
             IEnumerable<RegionLink> links = from link in region.links
-                                            where rraClosedSet.ContainsKey(link.UniqueHashCode())
+                                            where rraClosedSet.ContainsKey(link)
                                             select link;
 
             if (links.EnumerableNullOrEmpty())
@@ -209,7 +218,7 @@ namespace Trailblazer
             }
 
             return (from link in links
-                    let totalCost = rraClosedSet[link.UniqueHashCode()] + RRAHeuristic(link, cell)
+                    let totalCost = rraClosedSet[link] + RRAHeuristic(link, cell)
                     select totalCost).Min();
         }
 
@@ -225,17 +234,17 @@ namespace Trailblazer
         /// <param name="targetCell">Target cell.</param>
         private RegionLink ReverseResumableAStar(CellRef targetCell)
         {
-            LinkOrCell target = new LinkOrCell(targetCell);
             Region targetRegion = regionGrid.GetValidRegionAt_NoRebuild(targetCell);
 
             // Rebuild the open set based on the new target
-            SimplePriorityQueue<RegionLink, int> oldSet = rraOpenSet;
-            rraOpenSet = new SimplePriorityQueue<RegionLink, int>();
-            foreach (RegionLink link in oldSet)
+            var oldSet = rraOpenSet;
+            rraOpenSet = new SimplePriorityQueue<LinkNode, int>();
+            foreach (LinkNode link in oldSet)
             {
-                rraOpenSet.Enqueue(link, rraClosedSet[link.UniqueHashCode()] + RRAHeuristic(link, targetCell));
+                rraOpenSet.Enqueue(link, rraClosedSet[link] + RRAHeuristic(link, targetCell));
             }
 
+            int closedNodes = 0;
             while (rraOpenSet.Count > 0)
             {
                 RegionLink currentLink = rraOpenSet.Dequeue();
@@ -244,6 +253,14 @@ namespace Trailblazer
                 if (currentLink.regions.Contains(targetRegion))
                 {
                     return currentLink;
+                }
+
+                DebugDrawRegionNode(currentLink);
+
+                if (closedNodes > SearchLimit)
+                {
+                    Log.Error("[Trailblazer] RRA* Heuristic closed too many cells, aborting");
+                    return null;
                 }
 
                 // Get the list of neighboring links.  Links are considered to share an edge if their shared
@@ -257,14 +274,20 @@ namespace Trailblazer
                 foreach (RegionLink neighbor in neighbors)
                 {
                     int moveCost = DistanceBetween(currentLink, neighbor);
+                    DebugDrawRegionEdge(currentLink, neighbor);
 
-                    int newCost = rraClosedSet[currentLink.UniqueHashCode()] + moveCost;
-                    if (!rraClosedSet.ContainsKey(neighbor.UniqueHashCode()) || newCost < rraClosedSet[neighbor.UniqueHashCode()])
+                    int newCost = rraClosedSet[currentLink] + moveCost;
+                    if (!rraClosedSet.ContainsKey(neighbor) || newCost < rraClosedSet[neighbor])
                     {
-                        rraClosedSet[neighbor.UniqueHashCode()] = newCost;
-                        rraOpenSet.Enqueue(neighbor, rraClosedSet[neighbor.UniqueHashCode()] + RRAHeuristic(neighbor, targetCell));
+                        rraClosedSet[neighbor] = newCost;
+                        int estimatedCost = newCost + RRAHeuristic(neighbor, targetCell);
+                        if (!rraOpenSet.EnqueueWithoutDuplicates(neighbor, estimatedCost))
+                        {
+                            rraOpenSet.UpdatePriority(neighbor, estimatedCost);
+                        }
                     }
                 }
+                closedNodes++;
             }
 
             Log.Error("[Trailblazer] RRA heuristic failed to reach target region " + targetRegion);
@@ -442,23 +465,31 @@ namespace Trailblazer
 
         // === Debug methods ===
 
-        static ushort debugMat = 0;
-        private void DebugDrawFinalPath(CellRef dest = null)
+        private void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
+        {
+            pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, "open", 50);
+        }
+
+        private void DebugDrawRegionNode(RegionLink node)
         {
             if (DebugViewSettings.drawPaths)
             {
-                float debugColor = (debugMat % 100) / 100f;
-                debugMat++;
-                //if (destIndex != -1)
-                //{
-                //    int pathIndex = destIndex;
-                //    while (pathIndex >= 0)
-                //    {
-                //        IntVec3 c = pathData.map.cellIndices.IndexToCell(pathIndex);
-                //        pathData.map.debugDrawer.FlashCell(c, debugColor, calcGrid[pathIndex].knownCost.ToString(), 50);
-                //        pathIndex = calcGrid[pathIndex].parentIndex;
-                //    }
-                //}
+                FlashCell(node.span.root, "Heuristic", 50, 0.05f);
+            }
+        }
+
+        private void DebugDrawRegionEdge(RegionLink nodeA, RegionLink nodeB)
+        {
+            if (DebugViewSettings.drawPaths)
+            {
+                pathfindData.map.debugDrawer.FlashLine(nodeA.span.root, nodeB.span.root);
+            }
+        }
+
+        private void DebugDrawFinalPath()
+        {
+            if (DebugViewSettings.drawPaths)
+            {
                 int mapCells = pathfindData.map.Area;
                 for (int i = 0; i < mapCells; i++)
                 {
@@ -466,13 +497,13 @@ namespace Trailblazer
                     {
                         IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
                         string costString = string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].totalCost);
-                        pathfindData.map.debugDrawer.FlashCell(c, debugColor, costString, 50);
+                        FlashCell(c, costString, 50);
                     }
                 }
 
                 foreach (CellRef cell in openSet)
                 {
-                    pathfindData.map.debugDrawer.FlashCell(cell, debugColor, "open", 50);
+                    FlashCell(cell, "open", 50);
                 }
             }
         }
