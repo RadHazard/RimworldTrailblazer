@@ -196,6 +196,23 @@ namespace Trailblazer
             return PawnPath.NotFound;
         }
 
+        private int Heuristic(CellRef cell)
+        {
+            Region region = regionGrid.GetValidRegionAt_NoRebuild(cell);
+            IEnumerable<RegionLink> links = from link in region.links
+                                            where rraClosedSet.ContainsKey(link.UniqueHashCode())
+                                            select link;
+
+            if (links.EnumerableNullOrEmpty())
+            {
+                links = ReverseResumableAStar(cell).Yield();
+            }
+
+            return (from link in links
+                    let totalCost = rraClosedSet[link.UniqueHashCode()] + RRAHeuristic(link, cell)
+                    select totalCost).Min();
+        }
+
         /// <summary>
         /// Initiates or resumes RRA* pathfinding on the region grid with the given target.
         /// 
@@ -259,22 +276,20 @@ namespace Trailblazer
             return DistanceBetween(link, target);
         }
 
-        private int Heuristic(CellRef cell)
+        private PawnPath FinalizedPath(CellRef final)
         {
-            Region region = regionGrid.GetValidRegionAt_NoRebuild(cell);
-            IEnumerable<RegionLink> links = from link in region.links
-                                            where rraClosedSet.ContainsKey(link.UniqueHashCode())
-                                            select link;
-
-            if (links.EnumerableNullOrEmpty())
+            PawnPath emptyPawnPath = pathfindData.map.pawnPathPool.GetEmptyPawnPath();
+            CellRef cell = final;
+            while (cell != null)
             {
-                links = ReverseResumableAStar(cell).Yield();
+                emptyPawnPath.AddNode(cell);
+                cell = closedSet[cell].parent;
             }
-
-            return (from link in links
-                    let totalCost = rraClosedSet[link.UniqueHashCode()] + RRAHeuristic(link, cell)
-                    select totalCost).Min();
+            emptyPawnPath.SetupFound(closedSet[final].knownCost, false);
+            return emptyPawnPath;
         }
+
+        // === Utility methods ===
 
         private CellRect LinkToRect(RegionLink link)
         {
@@ -292,6 +307,12 @@ namespace Trailblazer
             return CellRect.FromLimits(root.x, root.z, maxX, maxZ);
         }
 
+        /// <summary>
+        /// Calculates the shortest octile distance between the region link and the cell
+        /// </summary>
+        /// <returns>The distance.</returns>
+        /// <param name="link">Link.</param>
+        /// <param name="cell">Cell.</param>
         private int DistanceBetween(RegionLink link, CellRef cell)
         {
             IntVec3 closestCell = LinkToRect(link).ClosestCellTo(cell);
@@ -301,24 +322,125 @@ namespace Trailblazer
             return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
         }
 
+        /// <summary>
+        /// Calculates the shortest octile distance between region links A and B
+        /// </summary>
+        /// <returns>The distance.</returns>
+        /// <param name="linkA">Link a.</param>
+        /// <param name="linkB">Link b.</param>
         private int DistanceBetween(RegionLink linkA, RegionLink linkB)
         {
-            //TODO - find a decent way to calculate this
-            throw new NotImplementedException();
+            EdgeSpan spanA = linkA.span;
+            EdgeSpan spanB = linkB.span;
+
+            int dx;
+            int dz;
+            if (spanA.dir == spanB.dir)
+            {
+                // Both spans are parallel
+                if (spanA.dir == SpanDirection.North)
+                {
+                    // dX is constant, check for dZ spacing
+                    dx = Math.Abs(spanA.root.x - spanB.root.x);
+                    int aMinZ = spanA.root.z;
+                    int aMaxZ = aMinZ + spanA.length - 1;
+                    int bMinZ = spanB.root.z;
+                    int bMaxZ = bMinZ + spanB.length - 1;
+                    if (aMaxZ < bMinZ)
+                    {
+                        // a is strictly less than b in the Z direction
+                        dz = bMinZ - aMaxZ;
+                    }
+                    else if (aMinZ > bMaxZ)
+                    {
+                        // a is strictly greater than b in the Z direction
+                        dz = aMinZ - bMaxZ;
+                    }
+                    else
+                    {
+                        // spans overlap in the Z direction
+                        dz = 0;
+                    }
+                }
+                else
+                {
+                    // dZ is constant, check for dX spacing
+                    dz = Math.Abs(spanA.root.z - spanB.root.z);
+                    int aMinX = spanA.root.x;
+                    int aMaxX = aMinX + spanA.length - 1;
+                    int bMinX = spanB.root.x;
+                    int bMaxX = bMinX + spanB.length - 1;
+                    if (aMaxX < bMinX)
+                    {
+                        // a is strictly less than b in the X direction
+                        dx = bMinX - aMaxX;
+                    }
+                    else if (aMinX > bMaxX)
+                    {
+                        // a is strictly greater than b in the X direction
+                        dx = bMinX - aMaxX;
+                    }
+                    else
+                    {
+                        // spans overlap in the X direction
+                        dx = 0;
+                    }
+                }
+            }
+            else
+            {
+                // Spans are perpendicular
+                EdgeSpan northSpan = spanA;
+                EdgeSpan eastSpan = spanB;
+                if (spanB.dir == SpanDirection.North)
+                {
+                    northSpan = spanB;
+                    eastSpan = spanA;
+                }
+
+                int northX = northSpan.root.x;
+                int eastMinX = eastSpan.root.x;
+                int eastMaxX = eastMinX + eastSpan.length - 1;
+                if (northX < eastMinX)
+                {
+                    // north span is below the east span in the X direction
+                    dx = eastMinX - northX;
+                }
+                else if (northX > eastMaxX)
+                {
+                    // north span is above the east span in the X direction
+                    dx = northX - eastMaxX;
+                }
+                else
+                {
+                    // spans overlap in the X direction
+                    dx = 0;
+                }
+
+                int eastZ = eastSpan.root.z;
+                int northMinZ = northSpan.root.z;
+                int northMaxZ = northMinZ + eastSpan.length - 1;
+                if (eastZ < northMinZ)
+                {
+                    // east span is below the north span in the Z direction
+                    dz = northMinZ - eastZ;
+                }
+                else if (eastZ > northMaxZ)
+                {
+                    // east span is above the north span in the Z direction
+                    dz = eastZ - northMaxZ;
+                }
+                else
+                {
+                    // spans overlap in the Z direction
+                    dz = 0;
+                }
+            }
+
+            return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
         }
 
-        private PawnPath FinalizedPath(CellRef final)
-        {
-            PawnPath emptyPawnPath = pathfindData.map.pawnPathPool.GetEmptyPawnPath();
-            CellRef cell = final;
-            while (cell != null)
-            {
-                emptyPawnPath.AddNode(cell);
-                cell = closedSet[cell].parent;
-            }
-            emptyPawnPath.SetupFound(closedSet[final].knownCost, false);
-            return emptyPawnPath;
-        }
+        // === Debug methods ===
 
         static ushort debugMat = 0;
         private void DebugDrawFinalPath(CellRef dest = null)
