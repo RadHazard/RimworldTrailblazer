@@ -52,7 +52,7 @@ namespace Trailblazer
         protected class TrailblazerPathWorker_AStar : TrailblazerPathWorker
         {
             private readonly FastPriorityQueue<CostNode> openSet;
-            private readonly PathFinderNode[] closedSet; // TODO - this used to be static.  Performance implications?
+            private readonly PathFinderNode[] closedSet;
 
             public TrailblazerPathWorker_AStar(PathfindData pathfindData) : base(pathfindData)
             {
@@ -220,7 +220,7 @@ namespace Trailblazer
                         if (closedSet[i].visited)
                         {
                             IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
-                            string costString = "{} / {}".Formatted(closedSet[i].knownCost, closedSet[i].totalCost);
+                            string costString = string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].totalCost);
                             pathfindData.map.debugDrawer.FlashCell(c, debugColor, costString, 50);
                         }
                     }
@@ -233,7 +233,7 @@ namespace Trailblazer
                 }
             }
 
-            // TODO move these to TrailblazerPather
+            // TODO move these to TrailblazerPather or maybe PathfindData
             private CellRect CalculateDestinationRect()
             {
                 CellRect result;
