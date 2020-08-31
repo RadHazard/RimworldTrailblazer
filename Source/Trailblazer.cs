@@ -3,37 +3,8 @@ using Verse.AI;
 
 namespace Trailblazer
 {
-    /// <summary>
-    /// Stub class that replaces the vanilla PathFinder class.  Each pathfinding attempt creates a new TrailblazerPather
-    /// that performs the actual pathfinding work
-    /// </summary>
-    public class Trailblazer : PathFinder
+    public static class Trailblazer
     {
-        private readonly Map map;
-        private readonly TrailblazerPather pather;
-
-        public Trailblazer(Map map) : base(map)
-        {
-            this.map = map;
-            pather = new TrailblazerPather_AStar(map);
-        }
-
-        /// <summary>
-        /// Stub that replaces the vanilla pathfind method. Performs error checking, then creates a TrailblazerPather
-        /// to perform the actual pathfinding.
-        /// </summary>
-        /// <returns>The path.</returns>
-        /// <param name="start">Start.</param>
-        /// <param name="dest">Destination.</param>
-        /// <param name="pawn">Pawn.</param>
-        /// <param name="peMode">Pe mode.</param>
-        public new PawnPath FindPath(IntVec3 start, LocalTargetInfo dest, Pawn pawn, PathEndMode peMode = PathEndMode.OnCell)
-        {
-            bool canBash = pawn?.CurJob?.canBash ?? false;
-            return FindPath(start, dest, TraverseParms.For(pawn, Danger.Deadly, TraverseMode.ByPawn, canBash), peMode);
-        }
-
-
         /// <summary>
         /// Stub that replaces the vanilla pathfind method. Performs error checking, then creates a TrailblazerPather
         /// to perform the actual pathfinding.
@@ -43,7 +14,7 @@ namespace Trailblazer
         /// <param name="dest">Destination.</param>
         /// <param name="traverseParms">Traverse parms.</param>
         /// <param name="peMode">Path end mode.</param>
-        public new PawnPath FindPath(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode = PathEndMode.OnCell)
+        public static PawnPath FindPath(Map map, IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode)
         {
             if (DebugSettings.pathThroughWalls)
             {
@@ -77,8 +48,8 @@ namespace Trailblazer
                 return PawnPath.NotFound;
             }
 
-            //TODO this might be threadable
-            return pather.FindPath(start, dest, traverseParms, peMode);
+            PathfindData pathfindData = new PathfindData(map, map.GetCellRef(start), dest, traverseParms, peMode);
+            return new TrailblazerPather_AStar(pathfindData).FindPath(); //TODO allow swapping out pathers for debugging
         }
     }
 }
