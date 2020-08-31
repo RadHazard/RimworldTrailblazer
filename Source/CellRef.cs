@@ -95,6 +95,11 @@ namespace Trailblazer
             return new CellRef(map.cellIndices, cell);
         }
 
+        public static CellRef GetCellRef(this Map map, int x, int z)
+        {
+            return new CellRef(map.cellIndices, new IntVec3(x, 0, z));
+        }
+
         public static CellRef GetCellRef(this CellIndices cellIndices, int index)
         {
             return new CellRef(cellIndices, index);
@@ -103,6 +108,11 @@ namespace Trailblazer
         public static CellRef GetCellRef(this CellIndices cellIndices, IntVec3 cell)
         {
             return new CellRef(cellIndices, cell);
+        }
+
+        public static CellRef GetCellRef(this CellIndices cellIndices, int x, int z)
+        {
+            return new CellRef(cellIndices, new IntVec3(x, 0, z));
         }
     }
 }

@@ -80,10 +80,6 @@ namespace Trailblazer
                 CellRef start = pathfindData.start;
                 CellRef dest = map.GetCellRef(pathfindData.dest.Cell);
 
-                CellRect destRect = CalculateDestinationRect();
-                List<int> disallowedCornerIndices = CalculateDisallowedCorners(destRect);
-                bool destinationIsSingleCell = destRect.Width == 1 && destRect.Height == 1;
-
                 closedSet[start].knownCost = 0;
                 closedSet[start].heuristicCost = CalcHeuristicEstimate(start, dest, moveTicksCardinal, moveTicksDiagonal);
                 closedSet[start].totalCost = closedSet[start].heuristicCost;
@@ -105,15 +101,7 @@ namespace Trailblazer
                     }
 
                     // Check if we've reached our goal
-                    if (destinationIsSingleCell)
-                    {
-                        if (current == dest)
-                        {
-                            DebugDrawFinalPath(current);
-                            return FinalizedPath(current);
-                        }
-                    }
-                    else if (destRect.Contains(current.Cell) && !disallowedCornerIndices.Contains(current.Index))
+                    else if (pathfindData.CellIsInDestination(current))
                     {
                         DebugDrawFinalPath(current);
                         return FinalizedPath(current);
@@ -124,13 +112,6 @@ namespace Trailblazer
                     {
                         Log.Warning(pathfindData.traverseParms.pawn + " pathing from " + pathfindData.start + " to " +
                             pathfindData.dest + " hit search limit of " + SearchLimit + " cells.", false);
-                        DebugDrawFinalPath();
-                        return PawnPath.NotFound;
-                    }
-                    if (openSet.Count > SearchLimit)
-                    {
-                        Log.Warning(pathfindData.traverseParms.pawn + " pathing from " + pathfindData.start + " to " +
-                            pathfindData.dest + " hit search limit of " + SearchLimit + " cells in the open set.", false);
                         DebugDrawFinalPath();
                         return PawnPath.NotFound;
                     }
@@ -231,60 +212,6 @@ namespace Trailblazer
                         pathfindData.map.debugDrawer.FlashCell(costNode.cellRef, debugColor, "open", 50);
                     }
                 }
-            }
-
-            // TODO move these to TrailblazerPather or maybe PathfindData
-            private CellRect CalculateDestinationRect()
-            {
-                CellRect result;
-                if (pathfindData.dest.HasThing && pathfindData.pathEndMode != PathEndMode.OnCell)
-                {
-                    result = pathfindData.dest.Thing.OccupiedRect();
-                }
-                else
-                {
-                    result = CellRect.SingleCell(pathfindData.dest.Cell);
-                }
-
-                if (pathfindData.pathEndMode == PathEndMode.Touch)
-                {
-                    result = result.ExpandedBy(1);
-                }
-                return result;
-            }
-
-            private List<int> CalculateDisallowedCorners(CellRect destinationRect)
-            {
-                List<int> disallowedCornerIndices = new List<int>(4);
-                if (pathfindData.pathEndMode == PathEndMode.Touch)
-                {
-                    int minX = destinationRect.minX;
-                    int minZ = destinationRect.minZ;
-                    int maxX = destinationRect.maxX;
-                    int maxZ = destinationRect.maxZ;
-                    if (!IsCornerTouchAllowed(minX + 1, minZ + 1, minX + 1, minZ, minX, minZ + 1))
-                    {
-                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(minX, minZ));
-                    }
-                    if (!IsCornerTouchAllowed(minX + 1, maxZ - 1, minX + 1, maxZ, minX, maxZ - 1))
-                    {
-                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(minX, maxZ));
-                    }
-                    if (!IsCornerTouchAllowed(maxX - 1, maxZ - 1, maxX - 1, maxZ, maxX, maxZ - 1))
-                    {
-                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(maxX, maxZ));
-                    }
-                    if (!IsCornerTouchAllowed(maxX - 1, minZ + 1, maxX - 1, minZ, maxX, minZ + 1))
-                    {
-                        disallowedCornerIndices.Add(pathfindData.map.cellIndices.CellToIndex(maxX, minZ));
-                    }
-                }
-                return disallowedCornerIndices;
-            }
-
-            private bool IsCornerTouchAllowed(int cornerX, int cornerZ, int adjCardinal1X, int adjCardinal1Z, int adjCardinal2X, int adjCardinal2Z)
-            {
-                return TouchPathEndModeUtility.IsCornerTouchAllowed(cornerX, cornerZ, adjCardinal1X, adjCardinal1Z, adjCardinal2X, adjCardinal2Z, pathfindData.map);
             }
         }
     }
