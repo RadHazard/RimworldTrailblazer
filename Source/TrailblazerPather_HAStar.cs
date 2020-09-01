@@ -35,6 +35,8 @@ namespace Trailblazer
             public readonly RegionLink link;
             public readonly bool end;
 
+            private static readonly Dictionary<LinkNode, List<LinkNode>> neighborCache = new Dictionary<LinkNode, List<LinkNode>>();
+
             public LinkNode(RegionLink link, bool end)
             {
                 this.link = link;
@@ -72,16 +74,24 @@ namespace Trailblazer
                 return end != linkNode.end && link.UniqueHashCode() == linkNode.link.UniqueHashCode();
             }
 
+            /// <summary>
+            /// Returns the list of neighboring links.  Links are considered to share an edge if they share a region.
+            /// </summary>
+            /// <returns>The neighbors.</returns>
             public IEnumerable<LinkNode> Neighbors()
             {
-                // Get the list of neighboring links.  Links are considered to share an edge if they share a region.
-                return (from region in link.regions
-                        from link in region.links
-                        where link != this.link
-                        from node in Both(link) //TODO closest instead?
-                        select node)
-                        .Distinct()
-                        .Concat(PairedNode()); // Don't forget our pair
+                if (!neighborCache.ContainsKey(this))
+                {
+                    neighborCache[this] = (from region in link.regions
+                                           from link in region.links
+                                           where link != this.link
+                                           from node in Both(link) //TODO closest?
+                                           select node)
+                                           .Distinct()
+                                           .Concat(PairedNode()) // Don't forget our pair
+                                           .ToList();
+                }
+                return neighborCache[this];
             }
 
             public IEnumerable<Region> CommonRegions(LinkNode other)
@@ -326,7 +336,7 @@ namespace Trailblazer
                     // TODO should we just totally ignore the edge instead?
                     if (!currentNode.CommonRegions(neighbor).Any(r => r.Allows(pathfindData.traverseParms, false)))
                     {
-                        moveCost *= 5;
+                        moveCost *= 50;
                     }
 
                     int newCost = rraClosedSet[currentNode] + moveCost;
@@ -338,7 +348,7 @@ namespace Trailblazer
                         {
                             rraOpenSet.UpdatePriority(neighbor, estimatedCost);
                         }
-                        DebugDrawRegionNode(neighbor);
+                        DebugDrawRegionNode(neighbor, string.Format("{0} ({1})", newCost, moveCost));
                     }
                 }
                 closedNodes++;
@@ -408,11 +418,11 @@ namespace Trailblazer
             return link.span.root + new IntVec3(link.span.length / 2, 0, 0);
         }
 
-        private void DebugDrawRegionNode(LinkNode node)
+        private void DebugDrawRegionNode(LinkNode node, string text)
         {
             if (DebugViewSettings.drawPaths)
             {
-                FlashCell(node.GetCell(), rraClosedSet[node].ToString(), 50, 0.05f);
+                FlashCell(node.GetCell(), text, 50, 0.05f);
             }
         }
 
@@ -434,7 +444,7 @@ namespace Trailblazer
                     if (closedSet[i].visited)
                     {
                         IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
-                        string costString = string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].heuristicCost);
+                        string costString = null;//string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].heuristicCost);
                         FlashCell(c, costString, 50);
                     }
                 }

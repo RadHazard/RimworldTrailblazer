@@ -3,8 +3,7 @@
 - Debug the HAStar pathfinder
   - NPE from somewhere -- only when colonists aren't drafted
   - Why is it slow?
-    - The heuristic is *cheating* -- it costs nothing to path down a long span, so costs are way too low
-    - Try pathing using span centers instead?  Note -- check admissibility
+    - Fixed the cheating estimate, but it's still slow...
 - Write unit tests using RimTest
   - Write tests for each rule
   - Write tests for each pathfinder
