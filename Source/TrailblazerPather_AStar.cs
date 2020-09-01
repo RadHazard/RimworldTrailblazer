@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Priority_Queue;
 using Trailblazer.Rules;
 using Verse;
 using Verse.AI;
@@ -15,26 +16,6 @@ namespace Trailblazer
         // Pathing cost constants
         private const int SearchLimit = 160000;
 
-        private struct CostNode
-        {
-            public CellRef cellRef;
-            public int cost;
-
-            public CostNode(CellRef cellRef, int cost)
-            {
-                this.cellRef = cellRef;
-                this.cost = cost;
-            }
-        }
-
-        private class CostNodeComparer : IComparer<CostNode>
-        {
-            public int Compare(CostNode a, CostNode b)
-            {
-                return a.cost.CompareTo(b.cost);
-            }
-        }
-
         private struct PathFinderNode
         {
             public int knownCost;
@@ -44,22 +25,19 @@ namespace Trailblazer
             public bool visited;
         }
 
-        private readonly FastPriorityQueue<CostNode> openSet;
+        private readonly SimplePriorityQueue<CellRef> openSet;
         private readonly PathFinderNode[] closedSet;
+
+        private readonly int moveTicksCardinal;
+        private readonly int moveTicksDiagonal;
+
+        private static ushort debugMat = 0;
 
         public TrailblazerPather_AStar(PathfindData pathfindData) : base(pathfindData)
         {
             closedSet = new PathFinderNode[pathfindData.map.Area];
-            openSet = new FastPriorityQueue<CostNode>(new CostNodeComparer());
+            openSet = new SimplePriorityQueue<CellRef>();
 
-        }
-
-        public override PawnPath FindPath()
-        {
-            Map map = pathfindData.map;
-
-            int moveTicksCardinal;
-            int moveTicksDiagonal;
             if (pathfindData.traverseParms.pawn != null)
             {
                 moveTicksCardinal = pathfindData.traverseParms.pawn.TicksPerMoveCardinal;
@@ -71,33 +49,33 @@ namespace Trailblazer
                 moveTicksDiagonal = TrailblazerRule_CostMoveTicks.DefaultMoveTicksDiagonal;
             }
 
+            debugMat++;
+        }
+
+        public override PawnPath FindPath()
+        {
+            Map map = pathfindData.map;
+
             CellRef start = pathfindData.start;
             CellRef dest = map.GetCellRef(pathfindData.dest.Cell);
 
             closedSet[start].knownCost = 0;
-            closedSet[start].heuristicCost = CalcHeuristicEstimate(start, dest, moveTicksCardinal, moveTicksDiagonal);
+            closedSet[start].heuristicCost = CalcHeuristicEstimate(start, dest);
             closedSet[start].totalCost = closedSet[start].heuristicCost;
             closedSet[start].parent = null;
             closedSet[start].visited = true;
 
-            openSet.Push(new CostNode(start, 0));
+            openSet.Enqueue(start, 0);
 
             int closedNodes = 0;
             while (openSet.Count != 0)
             {
-                CostNode currentNode = openSet.Pop();
-                CellRef current = currentNode.cellRef;
-
-                // We've already scanned this node and found a better path to it
-                if (currentNode.cost > closedSet[current].totalCost)
-                {
-                    continue;
-                }
+                CellRef current = openSet.Dequeue();
 
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
                 {
-                    DebugDrawFinalPath(current);
+                    DebugDrawFinalPath();
                     return FinalizedPath(current);
                 }
 
@@ -128,7 +106,7 @@ namespace Trailblazer
                         {
                             if (!closedSet[neighbor].visited)
                             {
-                                closedSet[neighbor].heuristicCost = CalcHeuristicEstimate(neighbor, dest, moveTicksCardinal, moveTicksDiagonal);
+                                closedSet[neighbor].heuristicCost = CalcHeuristicEstimate(neighbor, dest);
                                 closedSet[neighbor].visited = true;
                             }
 
@@ -136,7 +114,10 @@ namespace Trailblazer
                             closedSet[neighbor].totalCost = neighborNewCost + closedSet[neighbor].heuristicCost;
                             closedSet[neighbor].parent = current;
 
-                            openSet.Push(new CostNode(neighbor, closedSet[neighbor].totalCost));
+                            if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].totalCost))
+                            {
+                                openSet.UpdatePriority(neighbor, closedSet[neighbor].totalCost);
+                            }
                         }
                     }
                 }
@@ -152,11 +133,11 @@ namespace Trailblazer
             return PawnPath.NotFound;
         }
 
-        private int CalcHeuristicEstimate(CellRef start, CellRef end, int cardinal, int diagonal)
+        private int CalcHeuristicEstimate(CellRef start, CellRef end)
         {
             int dx = Math.Abs(start.Cell.x - end.Cell.x);
             int dz = Math.Abs(start.Cell.z - end.Cell.z);
-            return GenMath.OctileDistance(dx, dz, cardinal, diagonal);
+            return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
         }
 
         private PawnPath FinalizedPath(CellRef final)
@@ -172,38 +153,29 @@ namespace Trailblazer
             return emptyPawnPath;
         }
 
-        static ushort debugMat = 0;
-        private void DebugDrawFinalPath(CellRef dest = null)
+        private void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
+        {
+            pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, text, duration);
+        }
+
+        private void DebugDrawFinalPath()
         {
             if (DebugViewSettings.drawPaths)
             {
-                float debugColor = (debugMat % 100) / 100f;
-                debugMat++;
-                //if (destIndex != -1)
-                //{
-                //    int pathIndex = destIndex;
-                //    while (pathIndex >= 0)
-                //    {
-                //        IntVec3 c = pathData.map.cellIndices.IndexToCell(pathIndex);
-                //        pathData.map.debugDrawer.FlashCell(c, debugColor, calcGrid[pathIndex].knownCost.ToString(), 50);
-                //        pathIndex = calcGrid[pathIndex].parentIndex;
-                //    }
-                //}
                 int mapCells = pathfindData.map.Area;
                 for (int i = 0; i < mapCells; i++)
                 {
                     if (closedSet[i].visited)
                     {
                         IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
-                        string costString = string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].totalCost);
-                        pathfindData.map.debugDrawer.FlashCell(c, debugColor, costString, 50);
+                        string costString = string.Format("{0} + {1} = {2}", closedSet[i].knownCost, closedSet[i].heuristicCost, closedSet[i].totalCost);
+                        FlashCell(c, costString, 50);
                     }
                 }
 
-                while (openSet.Count > 0)
+                foreach (CellRef cell in openSet)
                 {
-                    CostNode costNode = openSet.Pop();
-                    pathfindData.map.debugDrawer.FlashCell(costNode.cellRef, debugColor, "open", 50);
+                    FlashCell(cell, "open", 50);
                 }
             }
         }
