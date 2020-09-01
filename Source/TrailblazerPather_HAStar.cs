@@ -28,25 +28,73 @@ namespace Trailblazer
         }
 
         /// <summary>
-        /// RegionLink wrapper that implements GetHashCode and Equals
+        /// Represents a node on the region grid.  Each region link becomes two nodes joined by an implicit edge.
         /// </summary>
         private class LinkNode
         {
             public readonly RegionLink link;
+            public readonly bool end;
 
-            public LinkNode(RegionLink link)
+            public LinkNode(RegionLink link, bool end)
             {
                 this.link = link;
+                this.end = end;
             }
+
+            public static LinkNode Top(RegionLink link)
+            {
+                return new LinkNode(link, true);
+            }
+
+            public static LinkNode Bottom(RegionLink link)
+            {
+                return new LinkNode(link, false);
+            }
+
+            public static IEnumerable<LinkNode> Both(RegionLink link)
+            {
+                yield return Bottom(link);
+                yield return Top(link);
+            }
+
+            public IntVec3 GetCell()
+            {
+                return end ? link.span.Cells.Last() : link.span.root;
+            }
+
+            public LinkNode PairedNode()
+            {
+                return new LinkNode(link, !end);
+            }
+
+            public bool IsPairedNode(LinkNode linkNode)
+            {
+                return end != linkNode.end && link.UniqueHashCode() == linkNode.link.UniqueHashCode();
+            }
+
+            public IEnumerable<LinkNode> Neighbors()
+            {
+                // Get the list of neighboring links.  Links are considered to share an edge if they share a region.
+                return (from region in link.regions
+                        from link in region.links
+                        where link != this.link
+                        from node in Both(link) //TODO closest instead?
+                        select node)
+                        .Distinct()
+                        .Concat(PairedNode()); // Don't forget our pair
+            }
+
+            public IEnumerable<Region> CommonRegions(LinkNode other)
+            {
+                return from region in link.regions
+                       where other.link.regions.Contains(region)
+                       select region;
+            }
+
 
             public static implicit operator RegionLink(LinkNode node)
             {
                 return node.link;
-            }
-
-            public static implicit operator LinkNode(RegionLink link)
-            {
-                return new LinkNode(link);
             }
 
             public override bool Equals(object obj)
@@ -60,12 +108,13 @@ namespace Trailblazer
 
             public bool Equals(LinkNode linkNode)
             {
-                return link.UniqueHashCode() == linkNode.link.UniqueHashCode();
+                return end == linkNode.end && link.UniqueHashCode() == linkNode.link.UniqueHashCode();
             }
 
             public override int GetHashCode()
             {
-                return (int)link.UniqueHashCode();
+                // Arbitrary numbers chosen by fair dice roll ;)
+                return Gen.HashCombineInt((int)link.UniqueHashCode(), end ? 2940 : 6003);
             }
         }
 
@@ -119,13 +168,14 @@ namespace Trailblazer
         public override PawnPath FindPath()
         {
             // Initialize the RRA* algorithm
-            foreach (Region region in destRegions)
+            IEnumerable<LinkNode> initialNodes = (from region in destRegions
+                                                  from link in region.links
+                                                  from node in LinkNode.Both(link)
+                                                  select node).Distinct();
+            foreach (LinkNode node in initialNodes)
             {
-                foreach (RegionLink link in region.links)
-                {
-                    rraClosedSet[link] = DistanceBetween(link, destCell);
-                    rraOpenSet.Enqueue(link, 0);
-                }
+                rraClosedSet[node] = RRAHeuristic(node, destCell);
+                rraOpenSet.Enqueue(node, rraClosedSet[node]);
             }
 
             // Initialize the main A* algorithm
@@ -208,23 +258,25 @@ namespace Trailblazer
         private int Heuristic(CellRef cell)
         {
             Region region = regionGrid.GetValidRegionAt_NoRebuild(cell);
-            IEnumerable<RegionLink> links = from link in region.links
-                                            where rraClosedSet.ContainsKey(link)
-                                            select link;
+            IEnumerable<LinkNode> nodes = from link in region.links
+                                          from node in LinkNode.Both(link)
+                                          where rraClosedSet.ContainsKey(node)
+                                          select node;
 
-            if (links.EnumerableNullOrEmpty())
+            if (nodes.EnumerableNullOrEmpty())
             {
-                links = ReverseResumableAStar(cell).Yield();
+                nodes = ReverseResumableAStar(cell).Yield();
             }
 
-            return (from link in links
-                    let totalCost = rraClosedSet[link] + RRAHeuristic(link, cell)
+            return (from node in nodes
+                    let totalCost = rraClosedSet[node] + RRAHeuristic(node, cell)
                     select totalCost).Min();
         }
 
         /// <summary>
         /// Initiates or resumes RRA* pathfinding on the region grid with the given target.
         /// 
+        /// TODO rewrite to explain changes
         /// NOTE - This algorithm inverts regions and links.  The nodes are RegionLinks, and the edges are between every
         /// link of a region.  Cost is the octaline distance between the closest respective cell of each link.
         /// (The goal cell is also considered a node. It shares edges with every RegionLink belonging to its region)
@@ -232,7 +284,7 @@ namespace Trailblazer
         /// </summary>
         /// <returns>The region link closest to the target cell</returns>
         /// <param name="targetCell">Target cell.</param>
-        private RegionLink ReverseResumableAStar(CellRef targetCell)
+        private LinkNode ReverseResumableAStar(CellRef targetCell)
         {
             Region targetRegion = regionGrid.GetValidRegionAt_NoRebuild(targetCell);
 
@@ -247,12 +299,12 @@ namespace Trailblazer
             int closedNodes = 0;
             while (rraOpenSet.Count > 0)
             {
-                RegionLink currentLink = rraOpenSet.Dequeue();
+                LinkNode currentNode = rraOpenSet.Dequeue();
 
                 // Check if we've reached our goal
-                if (currentLink.regions.Contains(targetRegion))
+                if (currentNode.link.regions.Contains(targetRegion))
                 {
-                    return currentLink;
+                    return currentNode;
                 }
 
                 if (closedNodes > SearchLimit)
@@ -261,26 +313,23 @@ namespace Trailblazer
                     return null;
                 }
 
-                // Get the list of neighboring links.  Links are considered to share an edge if they share a region.
-                // Ignore the links that would lead to impassible regions
-                IEnumerable<RegionLink> neighbors = from region in currentLink.regions
-                                                    from link in region.links
-                                                    let otherRegion = link.GetOtherRegion(region)
-                                                    where otherRegion.Allows(pathfindData.traverseParms, false) || otherRegion == targetRegion
-                                                    where link != currentLink
-                                                    select link;
+                // TODO - maybe this shouldn't be filtered here?
+                // We could just add a heavy fixed cost to untraversable regions
+                //where region.Allows(pathfindData.traverseParms, false)
 
-                foreach (RegionLink neighbor in neighbors)
+                foreach (LinkNode neighbor in currentNode.Neighbors())
                 {
-                    int moveCost = DistanceBetween(currentLink, neighbor);
-                    if (moveCost < 0)
-                    {
-                        Log.ErrorOnce("[Trailblazer] RRA* heuristic had negative cost!", pathfindData.GetHashCode() ^ 0x98C45AB);//TODO
-                        moveCost = 0;
-                    }
-                    DebugDrawRegionEdge(currentLink, neighbor);
+                    DebugDrawRegionEdge(currentNode, neighbor);
 
-                    int newCost = rraClosedSet[currentLink] + moveCost;
+                    int moveCost = DistanceBetween(currentNode, neighbor);
+                    // Penalize the edge if the two links don't share a pathable region
+                    // TODO should we just totally ignore the edge instead?
+                    if (!currentNode.CommonRegions(neighbor).Any(r => r.Allows(pathfindData.traverseParms, false)))
+                    {
+                        moveCost *= 5;
+                    }
+
+                    int newCost = rraClosedSet[currentNode] + moveCost;
                     if (!rraClosedSet.ContainsKey(neighbor) || newCost < rraClosedSet[neighbor])
                     {
                         rraClosedSet[neighbor] = newCost;
@@ -299,9 +348,9 @@ namespace Trailblazer
             return null;
         }
 
-        private int RRAHeuristic(RegionLink link, CellRef target)
+        private int RRAHeuristic(LinkNode link, CellRef target)
         {
-            return DistanceBetween(link, target);
+            return DistanceBetween(link.GetCell(), target);
         }
 
         private PawnPath FinalizedPath(CellRef final)
@@ -319,153 +368,28 @@ namespace Trailblazer
 
         // === Utility methods ===
 
-        private CellRect LinkToRect(RegionLink link)
-        {
-            IntVec3 root = link.span.root;
-            int maxX = root.x;
-            int maxZ = root.z;
-            if (link.span.dir == SpanDirection.North)
-            {
-                maxZ += link.span.length;
-            }
-            else
-            {
-                maxX += link.span.length;
-            }
-            return CellRect.FromLimits(root.x, root.z, maxX, maxZ);
-        }
-
         /// <summary>
-        /// Calculates the shortest octile distance between the region link and the cell
+        /// Calculates the shortest octile distance between two cells
         /// </summary>
-        /// <returns>The distance.</returns>
-        /// <param name="link">Link.</param>
-        /// <param name="cell">Cell.</param>
-        private int DistanceBetween(RegionLink link, CellRef cell)
+        /// <returns>The distance between the cells.</returns>
+        /// <param name="cellA">First cell.</param>
+        /// <param name="cellB">Second cell.</param>
+        private int DistanceBetween(IntVec3 cellA, IntVec3 cellB)
         {
-            IntVec3 closestCell = LinkToRect(link).ClosestCellTo(cell);
-
-            int dx = Math.Abs(closestCell.x - cell.Cell.x);
-            int dz = Math.Abs(closestCell.z - cell.Cell.z);
+            int dx = Math.Abs(cellA.x - cellB.x);
+            int dz = Math.Abs(cellA.z - cellB.z);
             return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
         }
 
         /// <summary>
-        /// Calculates the shortest octile distance between region links A and B
+        /// Calculates the shortest octile distance between two LinkNodes
         /// </summary>
-        /// <returns>The distance.</returns>
-        /// <param name="linkA">Link a.</param>
-        /// <param name="linkB">Link b.</param>
-        private int DistanceBetween(RegionLink linkA, RegionLink linkB)
+        /// <returns>The distance between the nodes.</returns>
+        /// <param name="nodeA">First node.</param>
+        /// <param name="nodeB">Second node.</param>
+        private int DistanceBetween(LinkNode nodeA, LinkNode nodeB)
         {
-            EdgeSpan spanA = linkA.span;
-            EdgeSpan spanB = linkB.span;
-
-            int dx;
-            int dz;
-            if (spanA.dir == spanB.dir)
-            {
-                // Both spans are parallel
-                if (spanA.dir == SpanDirection.North)
-                {
-                    // dX is constant, check for dZ spacing
-                    dx = Math.Abs(spanA.root.x - spanB.root.x);
-                    int aMinZ = spanA.root.z;
-                    int aMaxZ = aMinZ + spanA.length - 1;
-                    int bMinZ = spanB.root.z;
-                    int bMaxZ = bMinZ + spanB.length - 1;
-                    if (aMaxZ < bMinZ)
-                    {
-                        // a is strictly less than b in the Z direction
-                        dz = bMinZ - aMaxZ;
-                    }
-                    else if (aMinZ > bMaxZ)
-                    {
-                        // a is strictly greater than b in the Z direction
-                        dz = aMinZ - bMaxZ;
-                    }
-                    else
-                    {
-                        // spans overlap in the Z direction
-                        dz = 0;
-                    }
-                }
-                else
-                {
-                    // dZ is constant, check for dX spacing
-                    dz = Math.Abs(spanA.root.z - spanB.root.z);
-                    int aMinX = spanA.root.x;
-                    int aMaxX = aMinX + spanA.length - 1;
-                    int bMinX = spanB.root.x;
-                    int bMaxX = bMinX + spanB.length - 1;
-                    if (aMaxX < bMinX)
-                    {
-                        // a is strictly less than b in the X direction
-                        dx = bMinX - aMaxX;
-                    }
-                    else if (aMinX > bMaxX)
-                    {
-                        // a is strictly greater than b in the X direction
-                        dx = aMinX - bMaxX;
-                    }
-                    else
-                    {
-                        // spans overlap in the X direction
-                        dx = 0;
-                    }
-                }
-            }
-            else
-            {
-                // Spans are perpendicular
-                EdgeSpan northSpan = spanA;
-                EdgeSpan eastSpan = spanB;
-                if (spanB.dir == SpanDirection.North)
-                {
-                    northSpan = spanB;
-                    eastSpan = spanA;
-                }
-
-                int northX = northSpan.root.x;
-                int eastMinX = eastSpan.root.x;
-                int eastMaxX = eastMinX + eastSpan.length - 1;
-                if (northX < eastMinX)
-                {
-                    // north span is below the east span in the X direction
-                    dx = eastMinX - northX;
-                }
-                else if (northX > eastMaxX)
-                {
-                    // north span is above the east span in the X direction
-                    dx = northX - eastMaxX;
-                }
-                else
-                {
-                    // spans overlap in the X direction
-                    dx = 0;
-                }
-
-                int eastZ = eastSpan.root.z;
-                int northMinZ = northSpan.root.z;
-                int northMaxZ = northMinZ + eastSpan.length - 1;
-                if (eastZ < northMinZ)
-                {
-                    // east span is below the north span in the Z direction
-                    dz = northMinZ - eastZ;
-                }
-                else if (eastZ > northMaxZ)
-                {
-                    // east span is above the north span in the Z direction
-                    dz = eastZ - northMaxZ;
-                }
-                else
-                {
-                    // spans overlap in the Z direction
-                    dz = 0;
-                }
-            }
-
-            return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
+            return DistanceBetween(nodeA.GetCell(), nodeB.GetCell());
         }
 
         // === Debug methods ===
@@ -484,22 +408,19 @@ namespace Trailblazer
             return link.span.root + new IntVec3(link.span.length / 2, 0, 0);
         }
 
-        private void DebugDrawRegionNode(RegionLink node)
+        private void DebugDrawRegionNode(LinkNode node)
         {
             if (DebugViewSettings.drawPaths)
             {
-                foreach (IntVec3 cell in node.span.Cells)
-                {
-                    FlashCell(cell, rraClosedSet[node].ToString(), 50, 0.05f);
-                }
+                FlashCell(node.GetCell(), rraClosedSet[node].ToString(), 50, 0.05f);
             }
         }
 
-        private void DebugDrawRegionEdge(RegionLink nodeA, RegionLink nodeB)
+        private void DebugDrawRegionEdge(LinkNode nodeA, LinkNode nodeB)
         {
             if (DebugViewSettings.drawPaths)
             {
-                pathfindData.map.debugDrawer.FlashLine(DebugFindLinkCenter(nodeA), DebugFindLinkCenter(nodeB));
+                pathfindData.map.debugDrawer.FlashLine(nodeA.GetCell(), nodeB.GetCell());
             }
         }
 
