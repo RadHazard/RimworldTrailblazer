@@ -140,7 +140,7 @@ namespace Trailblazer
         private SimplePriorityQueue<LinkNode, int> rraOpenSet;
         private readonly Dictionary<LinkNode, int> rraClosedSet;
         private readonly RegionGrid regionGrid;
-        private readonly List<Region> destRegions;
+        private readonly HashSet<Region> destRegions = new HashSet<Region>();
 
         // Shared params
         private readonly int moveTicksCardinal;
@@ -161,10 +161,10 @@ namespace Trailblazer
             rraOpenSet = new SimplePriorityQueue<LinkNode, int>();
             rraClosedSet = new Dictionary<LinkNode, int>();
             regionGrid = pathfindData.map.regionGrid;
-            //regionGrid.GetValidRegionAt(startCell);TODO
-            destRegions = (from cell in pathfindData.DestRect.Cells
-                           let region = regionGrid.GetValidRegionAt_NoRebuild(cell)
-                           select region).ToList();
+            destRegions.AddRange(from cell in pathfindData.DestRect.Cells
+                                 let region = regionGrid.GetValidRegionAt(cell)
+                                 where region != null
+                                 select region);
 
             if (pathfindData.traverseParms.pawn != null)
             {
@@ -186,7 +186,6 @@ namespace Trailblazer
         {
             // Initialize the RRA* algorithm
             IEnumerable<LinkNode> initialNodes = (from region in destRegions
-                                                  where region != null //TODO - why would these be null?
                                                   from link in region.links
                                                   from node in LinkNode.Both(link)
                                                   select node).Distinct();
@@ -217,8 +216,9 @@ namespace Trailblazer
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
                 {
-                    //DebugDrawFinalPath();
-                    debugVisualizer.RegisterReplay(debugReplay);
+                    //TODO
+                    DebugDrawFinalPath();
+                    //debugVisualizer.RegisterReplay(debugReplay);
                     return FinalizedPath(current);
                 }
 
@@ -227,8 +227,9 @@ namespace Trailblazer
                 {
                     Log.Warning("[Trailblazer] " + pathfindData.traverseParms.pawn + " pathing from " + startCell +
                         " to " + destCell + " hit search limit of " + SearchLimit + " cells.", false);
-                    //DebugDrawFinalPath();
-                    debugVisualizer.RegisterReplay(debugReplay);
+                    //TODO
+                    DebugDrawFinalPath();
+                    //debugVisualizer.RegisterReplay(debugReplay);
                     return PawnPath.NotFound;
                 }
 
@@ -276,14 +277,20 @@ namespace Trailblazer
             string faction = pawn?.Faction?.ToString() ?? "null";
             Log.Warning("[Trailblazer] " + pawn + " pathing from " + startCell + " to " + destCell +
                 " ran out of cells to process.\n" + "Job:" + currentJob + "\nFaction: " + faction, false);
-            //DebugDrawFinalPath();
-            debugVisualizer.RegisterReplay(debugReplay);
+            //TODO
+            DebugDrawFinalPath();
+            //debugVisualizer.RegisterReplay(debugReplay);
             return PawnPath.NotFound;
         }
 
         private int Heuristic(CellRef cell)
         {
             Region region = regionGrid.GetValidRegionAt_NoRebuild(cell);
+            if (destRegions.Contains(region))
+            {
+                return DistanceBetween(cell, destCell);
+            }
+
             IEnumerable<LinkNode> nodes = from link in region.links
                                           from node in LinkNode.Both(link)
                                           where rraClosedSet.ContainsKey(node)
@@ -463,7 +470,7 @@ namespace Trailblazer
                     if (closedSet[i].visited)
                     {
                         IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
-                        string costString = null;//string.Format("{0} / {1}", closedSet[i].knownCost, closedSet[i].heuristicCost);
+                        string costString = string.Format("{0} + {1} = {2}", closedSet[i].knownCost, closedSet[i].heuristicCost, closedSet[i].totalCost);
                         FlashCell(c, costString, 50);
                     }
                 }

@@ -11,6 +11,5 @@
 - Add a setting to swap between pathfinders
 - Expand debug visualizations
   - Show costs for individual rules
-  - Pathfinder-specific visualizaiton
-  - "Instant replay" feature to record and playback scanned cells
+  - Pathfinder-specific visualization
 - Profile various rules to make sure we're running efficiently
