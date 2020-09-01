@@ -72,6 +72,7 @@
     <Compile Include="PathfindData.cs" />
     <Compile Include="MoveData.cs" />
     <Compile Include="TrailblazerPather_HAStar.cs" />
+    <Compile Include="TrailblazerDebugVisualizer.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

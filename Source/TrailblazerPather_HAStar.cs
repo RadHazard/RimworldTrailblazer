@@ -32,6 +32,7 @@ namespace Trailblazer
         /// </summary>
         private class LinkNode
         {
+            public readonly Map map;
             public readonly RegionLink link;
             public readonly bool end;
 
@@ -39,6 +40,7 @@ namespace Trailblazer
 
             public LinkNode(RegionLink link, bool end)
             {
+                map = link.RegionA.Map;
                 this.link = link;
                 this.end = end;
             }
@@ -59,9 +61,9 @@ namespace Trailblazer
                 yield return Top(link);
             }
 
-            public IntVec3 GetCell()
+            public CellRef GetCell()
             {
-                return end ? link.span.Cells.Last() : link.span.root;
+                return map.GetCellRef(end ? link.span.Cells.Last() : link.span.root);
             }
 
             public LinkNode PairedNode()
@@ -146,6 +148,8 @@ namespace Trailblazer
 
         // Debug
         private static ushort debugMat = 0;
+        private readonly TrailblazerDebugVisualizer debugVisualizer;
+        private readonly TrailblazerDebugVisualizer.InstantReplay debugReplay;
 
         public TrailblazerPather_HAStar(PathfindData pathfindData) : base(pathfindData)
         {
@@ -157,6 +161,7 @@ namespace Trailblazer
             rraOpenSet = new SimplePriorityQueue<LinkNode, int>();
             rraClosedSet = new Dictionary<LinkNode, int>();
             regionGrid = pathfindData.map.regionGrid;
+            //regionGrid.GetValidRegionAt(startCell);TODO
             destRegions = (from cell in pathfindData.DestRect.Cells
                            let region = regionGrid.GetValidRegionAt_NoRebuild(cell)
                            select region).ToList();
@@ -173,12 +178,15 @@ namespace Trailblazer
             }
 
             debugMat++;
+            debugVisualizer = pathfindData.map.GetComponent<TrailblazerDebugVisualizer>();
+            debugReplay = debugVisualizer.CreateNewReplay();
         }
 
         public override PawnPath FindPath()
         {
             // Initialize the RRA* algorithm
             IEnumerable<LinkNode> initialNodes = (from region in destRegions
+                                                  where region != null //TODO - why would these be null?
                                                   from link in region.links
                                                   from node in LinkNode.Both(link)
                                                   select node).Distinct();
@@ -203,11 +211,14 @@ namespace Trailblazer
             while (openSet.Count > 0)
             {
                 CellRef current = openSet.Dequeue();
+                debugReplay.DrawCell(current);
+                debugReplay.NextFrame();
 
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
                 {
-                    DebugDrawFinalPath();
+                    //DebugDrawFinalPath();
+                    debugVisualizer.RegisterReplay(debugReplay);
                     return FinalizedPath(current);
                 }
 
@@ -216,7 +227,8 @@ namespace Trailblazer
                 {
                     Log.Warning("[Trailblazer] " + pathfindData.traverseParms.pawn + " pathing from " + startCell +
                         " to " + destCell + " hit search limit of " + SearchLimit + " cells.", false);
-                    DebugDrawFinalPath();
+                    //DebugDrawFinalPath();
+                    debugVisualizer.RegisterReplay(debugReplay);
                     return PawnPath.NotFound;
                 }
 
@@ -226,6 +238,9 @@ namespace Trailblazer
                     if (neighborCell.InBounds(map))
                     {
                         CellRef neighbor = map.GetCellRef(neighborCell);
+                        //debugReplay.DrawLine(current, neighbor);
+                        //debugReplay.NextFrame();
+
                         MoveData moveData = new MoveData(neighbor, direction);
                         int? moveCost = CalcMoveCost(moveData);
                         if (moveCost == null)
@@ -261,7 +276,8 @@ namespace Trailblazer
             string faction = pawn?.Faction?.ToString() ?? "null";
             Log.Warning("[Trailblazer] " + pawn + " pathing from " + startCell + " to " + destCell +
                 " ran out of cells to process.\n" + "Job:" + currentJob + "\nFaction: " + faction, false);
-            DebugDrawFinalPath();
+            //DebugDrawFinalPath();
+            debugVisualizer.RegisterReplay(debugReplay);
             return PawnPath.NotFound;
         }
 
@@ -310,6 +326,7 @@ namespace Trailblazer
             while (rraOpenSet.Count > 0)
             {
                 LinkNode currentNode = rraOpenSet.Dequeue();
+                debugReplay.DrawCell(currentNode.GetCell());
 
                 // Check if we've reached our goal
                 if (currentNode.link.regions.Contains(targetRegion))
@@ -329,7 +346,8 @@ namespace Trailblazer
 
                 foreach (LinkNode neighbor in currentNode.Neighbors())
                 {
-                    DebugDrawRegionEdge(currentNode, neighbor);
+                    //DebugDrawRegionEdge(currentNode, neighbor);
+                    debugReplay.DrawLine(currentNode.GetCell(), neighbor.GetCell());
 
                     int moveCost = DistanceBetween(currentNode, neighbor);
                     // Penalize the edge if the two links don't share a pathable region
@@ -348,9 +366,10 @@ namespace Trailblazer
                         {
                             rraOpenSet.UpdatePriority(neighbor, estimatedCost);
                         }
-                        DebugDrawRegionNode(neighbor, string.Format("{0} ({1})", newCost, moveCost));
+                        //DebugDrawRegionNode(neighbor, string.Format("{0} ({1})", newCost, moveCost));
                     }
                 }
+                debugReplay.NextFrame();
                 closedNodes++;
             }
 
