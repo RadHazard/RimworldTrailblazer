@@ -13,10 +13,10 @@ namespace Trailblazer.Rules
     /// </summary>
     public class TrailblazerRule_TestBuildings : TrailblazerRule
     {
-        protected const int Cost_BlockedWallBase = 70;
-        protected const float Cost_BlockedWallExtraPerHitPoint = 0.2f;
-        protected const int Cost_BlockedDoorBase = 50;
-        protected const float Cost_BlockedDoorPerHitPoint = 0.2f;
+        public const int Cost_BlockedWallBase = 70;
+        public const float Cost_BlockedWallExtraPerHitPoint = 0.2f;
+        public const int Cost_BlockedDoorBase = 50;
+        public const float Cost_BlockedDoorPerHitPoint = 0.2f;
 
         protected readonly PathGrid pathGrid;
         protected readonly EdificeGrid edificeGrid;

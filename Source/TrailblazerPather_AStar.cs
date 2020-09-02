@@ -25,7 +25,7 @@ namespace Trailblazer
             public bool visited;
         }
 
-        private readonly SimplePriorityQueue<CellRef> openSet;
+        private readonly SimplePriorityQueue<CellRef, int> openSet;
         private readonly PathFinderNode[] closedSet;
 
         private readonly int moveTicksCardinal;
@@ -36,7 +36,7 @@ namespace Trailblazer
         public TrailblazerPather_AStar(PathfindData pathfindData) : base(pathfindData)
         {
             closedSet = new PathFinderNode[pathfindData.map.Area];
-            openSet = new SimplePriorityQueue<CellRef>();
+            openSet = new SimplePriorityQueue<CellRef, int>();
 
             if (pathfindData.traverseParms.pawn != null)
             {

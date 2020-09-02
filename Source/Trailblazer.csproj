@@ -73,6 +73,7 @@
     <Compile Include="MoveData.cs" />
     <Compile Include="TrailblazerPather_HAStar.cs" />
     <Compile Include="TrailblazerDebugVisualizer.cs" />
+    <Compile Include="TrailblazerPather_TwinAStar.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

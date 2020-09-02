@@ -69,6 +69,11 @@ namespace Trailblazer
             return !(b is null);
         }
 
+        public override string ToString()
+        {
+            return Cell.ToString();
+        }
+
         public override int GetHashCode()
         {
             return Gen.HashCombineInt(cellIndices.NumGridCells, Gen.HashCombineInt(0, Index));
