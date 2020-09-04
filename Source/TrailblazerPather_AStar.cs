@@ -8,13 +8,13 @@ using Verse.AI;
 namespace Trailblazer
 {
     /// <summary>
-    /// Trailblazer pather that simply uses A* with a simple octaline distance heuristic
-    /// This will perform worse than vanilla, particularly with long paths!
+    /// Trailblazer pather that uses A*
+    /// The basic implimentation uses a simple Octaline heuristic, but can be overridden
     /// </summary>
     public class TrailblazerPather_AStar : TrailblazerPather
     {
         // Pathing cost constants
-        private const int SearchLimit = 160000;
+        protected const int SearchLimit = 160000;
 
         private struct PathFinderNode
         {
@@ -25,66 +25,73 @@ namespace Trailblazer
             public bool visited;
         }
 
+        // A* Params
         private readonly SimplePriorityQueue<CellRef, int> openSet;
         private readonly PathFinderNode[] closedSet;
 
-        private readonly int moveTicksCardinal;
-        private readonly int moveTicksDiagonal;
+        protected readonly CellRef startCell;
+        protected readonly CellRef destCell;
 
+        protected readonly int moveTicksCardinal;
+        protected readonly int moveTicksDiagonal;
+
+        // Debug
         private static ushort debugMat = 0;
+        protected readonly TrailblazerDebugVisualizer debugVisualizer;
+        protected readonly TrailblazerDebugVisualizer.InstantReplay debugReplay;
 
         public TrailblazerPather_AStar(PathfindData pathfindData) : base(pathfindData)
         {
             closedSet = new PathFinderNode[pathfindData.map.Area];
             openSet = new SimplePriorityQueue<CellRef, int>();
 
-            if (pathfindData.traverseParms.pawn != null)
-            {
-                moveTicksCardinal = pathfindData.traverseParms.pawn.TicksPerMoveCardinal;
-                moveTicksDiagonal = pathfindData.traverseParms.pawn.TicksPerMoveDiagonal;
-            }
-            else
-            {
-                moveTicksCardinal = CostRule_MoveTicks.DefaultMoveTicksCardinal;
-                moveTicksDiagonal = CostRule_MoveTicks.DefaultMoveTicksDiagonal;
-            }
+            startCell = pathfindData.start;
+            destCell = pathfindData.map.GetCellRef(pathfindData.dest.Cell);
+
+            CostRule_MoveTicks.GetMoveTicks(pathfindData, out moveTicksCardinal, out moveTicksDiagonal);
 
             debugMat++;
+            debugVisualizer = pathfindData.map.GetComponent<TrailblazerDebugVisualizer>();
+            debugReplay = debugVisualizer.CreateNewReplay();
         }
 
         public override PawnPath FindPath()
         {
+            // Initialize the main A* algorithm
             Map map = pathfindData.map;
 
-            CellRef start = pathfindData.start;
-            CellRef dest = map.GetCellRef(pathfindData.dest.Cell);
+            closedSet[startCell].knownCost = 0;
+            closedSet[startCell].heuristicCost = Heuristic(startCell);
+            closedSet[startCell].totalCost = closedSet[startCell].heuristicCost;
+            closedSet[startCell].parent = null;
+            closedSet[startCell].visited = true;
 
-            closedSet[start].knownCost = 0;
-            closedSet[start].heuristicCost = CalcHeuristicEstimate(start, dest);
-            closedSet[start].totalCost = closedSet[start].heuristicCost;
-            closedSet[start].parent = null;
-            closedSet[start].visited = true;
-
-            openSet.Enqueue(start, 0);
+            openSet.Enqueue(startCell, 0);
 
             int closedNodes = 0;
-            while (openSet.Count != 0)
+            while (openSet.Count > 0)
             {
                 CellRef current = openSet.Dequeue();
+                //debugReplay.DrawCell(current);
+                //debugReplay.NextFrame();
 
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
                 {
+                    //TODO
                     DebugDrawFinalPath();
+                    //debugVisualizer.RegisterReplay(debugReplay);
                     return FinalizedPath(current);
                 }
 
                 // Check if we hit the searchLimit
                 if (closedNodes > SearchLimit)
                 {
-                    Log.Warning(pathfindData.traverseParms.pawn + " pathing from " + pathfindData.start + " to " +
-                        pathfindData.dest + " hit search limit of " + SearchLimit + " cells.", false);
+                    Log.Warning("[Trailblazer] " + pathfindData.traverseParms.pawn + " pathing from " + startCell +
+                        " to " + destCell + " hit search limit of " + SearchLimit + " cells.", false);
+                    //TODO
                     DebugDrawFinalPath();
+                    //debugVisualizer.RegisterReplay(debugReplay);
                     return PawnPath.NotFound;
                 }
 
@@ -94,6 +101,9 @@ namespace Trailblazer
                     if (neighborCell.InBounds(map))
                     {
                         CellRef neighbor = map.GetCellRef(neighborCell);
+                        //debugReplay.DrawLine(current, neighbor);
+                        //debugReplay.NextFrame();
+
                         MoveData moveData = new MoveData(neighbor, direction);
 
                         if (!MoveIsValid(moveData))
@@ -104,7 +114,7 @@ namespace Trailblazer
                         {
                             if (!closedSet[neighbor].visited)
                             {
-                                closedSet[neighbor].heuristicCost = CalcHeuristicEstimate(neighbor, dest);
+                                closedSet[neighbor].heuristicCost = Heuristic(neighbor);
                                 closedSet[neighbor].visited = true;
                             }
 
@@ -125,16 +135,18 @@ namespace Trailblazer
             Pawn pawn = pathfindData.traverseParms.pawn;
             string currentJob = pawn?.CurJob?.ToString() ?? "null";
             string faction = pawn?.Faction?.ToString() ?? "null";
-            Log.Warning(pawn + " pathing from " + pathfindData.start + " to " + dest + " ran out of cells to process.\n" +
-            	"Job:" + currentJob + "\nFaction: " + faction, false);
+            Log.Warning("[Trailblazer] " + pawn + " pathing from " + startCell + " to " + destCell +
+                " ran out of cells to process.\n" + "Job:" + currentJob + "\nFaction: " + faction, false);
+            //TODO
             DebugDrawFinalPath();
+            //debugVisualizer.RegisterReplay(debugReplay);
             return PawnPath.NotFound;
         }
 
-        private int CalcHeuristicEstimate(CellRef start, CellRef end)
+        protected virtual int Heuristic(CellRef cell)
         {
-            int dx = Math.Abs(start.Cell.x - end.Cell.x);
-            int dz = Math.Abs(start.Cell.z - end.Cell.z);
+            int dx = Math.Abs(cell.Cell.x - destCell.Cell.x);
+            int dz = Math.Abs(cell.Cell.z - destCell.Cell.z);
             return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
         }
 
@@ -151,12 +163,14 @@ namespace Trailblazer
             return emptyPawnPath;
         }
 
-        private void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
+        // === Debug methods ===
+
+        protected void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
         {
             pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, text, duration);
         }
 
-        private void DebugDrawFinalPath()
+        protected void DebugDrawFinalPath()
         {
             if (DebugViewSettings.drawPaths)
             {
