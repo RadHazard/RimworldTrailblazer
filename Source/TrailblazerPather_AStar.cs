@@ -16,19 +16,19 @@ namespace Trailblazer
         // Pathing cost constants
         protected const int SearchLimit = 160000;
 
-        private struct PathFinderNode
+        private class CellNode
         {
             public int knownCost;
             public int heuristicCost;
-            public int totalCost;
+            public int TotalCost => knownCost + heuristicCost;
             public CellRef parent;
-            public bool visited;
         }
 
-        // A* Params
+        // Main A* params
         private readonly SimplePriorityQueue<CellRef, int> openSet;
-        private readonly PathFinderNode[] closedSet;
+        private readonly Dictionary<CellRef, CellNode> closedSet;
 
+        protected readonly Map map;
         protected readonly CellRef startCell;
         protected readonly CellRef destCell;
 
@@ -42,9 +42,10 @@ namespace Trailblazer
 
         public TrailblazerPather_AStar(PathfindData pathfindData) : base(pathfindData)
         {
-            closedSet = new PathFinderNode[pathfindData.map.Area];
             openSet = new SimplePriorityQueue<CellRef, int>();
+            closedSet = new Dictionary<CellRef, CellNode>();
 
+            map = pathfindData.map;
             startCell = pathfindData.start;
             destCell = pathfindData.map.GetCellRef(pathfindData.dest.Cell);
 
@@ -57,23 +58,20 @@ namespace Trailblazer
 
         public override PawnPath FindPath()
         {
-            // Initialize the main A* algorithm
-            Map map = pathfindData.map;
-
-            closedSet[startCell].knownCost = 0;
-            closedSet[startCell].heuristicCost = Heuristic(startCell);
-            closedSet[startCell].totalCost = closedSet[startCell].heuristicCost;
-            closedSet[startCell].parent = null;
-            closedSet[startCell].visited = true;
-
+            closedSet[startCell] = new CellNode
+            {
+                knownCost = 0,
+                heuristicCost = Heuristic(startCell),
+                parent = null
+            };
             openSet.Enqueue(startCell, 0);
 
             int closedNodes = 0;
             while (openSet.Count > 0)
             {
                 CellRef current = openSet.Dequeue();
-                //debugReplay.DrawCell(current);
-                //debugReplay.NextFrame();
+                debugReplay.DrawCell(current);
+                debugReplay.NextFrame();
 
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
@@ -105,26 +103,25 @@ namespace Trailblazer
                         //debugReplay.NextFrame();
 
                         MoveData moveData = new MoveData(neighbor, direction);
-
                         if (!MoveIsValid(moveData))
                             continue;
 
                         int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
-                        if (!closedSet[neighbor].visited || closedSet[neighbor].knownCost > neighborNewCost)
+                        if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
                         {
-                            if (!closedSet[neighbor].visited)
+                            if (!closedSet.ContainsKey(neighbor))
                             {
-                                closedSet[neighbor].heuristicCost = Heuristic(neighbor);
-                                closedSet[neighbor].visited = true;
+                                closedSet[neighbor] = new CellNode
+                                {
+                                    heuristicCost = Heuristic(neighbor)
+                                };
                             }
-
                             closedSet[neighbor].knownCost = neighborNewCost;
-                            closedSet[neighbor].totalCost = neighborNewCost + closedSet[neighbor].heuristicCost;
                             closedSet[neighbor].parent = current;
 
-                            if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].totalCost))
+                            if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].TotalCost))
                             {
-                                openSet.UpdatePriority(neighbor, closedSet[neighbor].totalCost);
+                                openSet.UpdatePriority(neighbor, closedSet[neighbor].TotalCost);
                             }
                         }
                     }
@@ -170,24 +167,20 @@ namespace Trailblazer
             pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, text, duration);
         }
 
-        protected void DebugDrawFinalPath()
+        private void DebugDrawFinalPath()
         {
             if (DebugViewSettings.drawPaths)
             {
                 int mapCells = pathfindData.map.Area;
-                for (int i = 0; i < mapCells; i++)
+                foreach (KeyValuePair<CellRef, CellNode> pair in closedSet)
                 {
-                    if (closedSet[i].visited)
-                    {
-                        IntVec3 c = pathfindData.map.cellIndices.IndexToCell(i);
-                        string costString = string.Format("{0} + {1} = {2}", closedSet[i].knownCost, closedSet[i].heuristicCost, closedSet[i].totalCost);
-                        FlashCell(c, costString, 50);
-                    }
+                    string costString = string.Format("{0} + {1} = {2}", pair.Value.knownCost, pair.Value.heuristicCost, pair.Value.TotalCost);
+                    FlashCell(pair.Key, costString, 50);
                 }
 
                 foreach (CellRef cell in openSet)
                 {
-                    FlashCell(cell, "open", 50);
+                    FlashCell(cell, null, 50);
                 }
             }
         }

@@ -13,46 +13,16 @@ namespace Trailblazer
     /// one paths on the cell grid for both directions, but the RRA* only uses a subset of the passability and cost
     /// rules.
     /// </summary>
-    public class TrailblazerPather_TwinAStar : TrailblazerPather
+    public class TrailblazerPather_TwinAStar : TrailblazerPather_AStar
     {
-        // Pathing cost constants
-        private const int SearchLimit = 160000;
-
-        private class CellNode
-        {
-            public int knownCost;
-            public int heuristicCost;
-            public int TotalCost => knownCost + heuristicCost;
-            public CellRef parent;
-        }
-
-        // Main A* params
-        private readonly SimplePriorityQueue<CellRef, int> openSet;
-        private readonly Dictionary<CellRef, CellNode> closedSet;
-
         // RRA* params
         private SimplePriorityQueue<CellRef, int> rraOpenSet;
         private readonly Dictionary<CellRef, int> rraClosedSet;
         private readonly List<PassabilityRule> rraPassRules;
         private readonly List<CostRule> rraCostRules;
 
-        // Shared params
-        private readonly Map map;
-        private readonly CellRef startCell;
-        private readonly CellRef destCell;
-        private readonly int moveTicksCardinal;
-        private readonly int moveTicksDiagonal;
-
-        // Debug
-        private static ushort debugMat = 0;
-        private readonly TrailblazerDebugVisualizer debugVisualizer;
-        private readonly TrailblazerDebugVisualizer.InstantReplay debugReplay;
-
         public TrailblazerPather_TwinAStar(PathfindData pathfindData) : base(pathfindData)
         {
-            openSet = new SimplePriorityQueue<CellRef, int>();
-            closedSet = new Dictionary<CellRef, CellNode>();
-
             rraOpenSet = new SimplePriorityQueue<CellRef, int>();
             rraClosedSet = new Dictionary<CellRef, int>();
             rraPassRules = new PassabilityRule[]
@@ -68,28 +38,6 @@ namespace Trailblazer
                 new CostRule_MoveTicks(pathfindData)
             }.Where(r => r.Applies()).ToList();
 
-            map = pathfindData.map;
-            startCell = pathfindData.start;
-            destCell = pathfindData.map.GetCellRef(pathfindData.dest.Cell);
-
-            if (pathfindData.traverseParms.pawn != null)
-            {
-                moveTicksCardinal = pathfindData.traverseParms.pawn.TicksPerMoveCardinal;
-                moveTicksDiagonal = pathfindData.traverseParms.pawn.TicksPerMoveDiagonal;
-            }
-            else
-            {
-                moveTicksCardinal = CostRule_MoveTicks.DefaultMoveTicksCardinal;
-                moveTicksDiagonal = CostRule_MoveTicks.DefaultMoveTicksDiagonal;
-            }
-
-            debugMat++;
-            debugVisualizer = pathfindData.map.GetComponent<TrailblazerDebugVisualizer>();
-            debugReplay = debugVisualizer.CreateNewReplay();
-        }
-
-        public override PawnPath FindPath()
-        {
             // Initialize the RRA* algorithm
             foreach (IntVec3 cell in pathfindData.DestRect)
             {
@@ -97,91 +45,9 @@ namespace Trailblazer
                 rraClosedSet[cellRef] = 0;
                 rraOpenSet.Enqueue(cellRef, 0);
             }
-
-            // Initialize the main A* algorithm
-            closedSet[startCell] = new CellNode
-            {
-                knownCost = 0,
-                heuristicCost = Heuristic(startCell),
-                parent = null
-            };
-            openSet.Enqueue(startCell, 0);
-
-            int closedNodes = 0;
-            while (openSet.Count > 0)
-            {
-                CellRef current = openSet.Dequeue();
-                debugReplay.DrawCell(current);
-                debugReplay.NextFrame();
-
-                // Check if we've reached our goal
-                if (pathfindData.CellIsInDestination(current))
-                {
-                    //TODO
-                    DebugDrawFinalPath();
-                    //debugVisualizer.RegisterReplay(debugReplay);
-                    return FinalizedPath(current);
-                }
-
-                // Check if we hit the searchLimit
-                if (closedNodes > SearchLimit)
-                {
-                    Log.Warning("[Trailblazer] " + pathfindData.traverseParms.pawn + " pathing from " + startCell +
-                        " to " + destCell + " hit search limit of " + SearchLimit + " cells.", false);
-                    //TODO
-                    DebugDrawFinalPath();
-                    //debugVisualizer.RegisterReplay(debugReplay);
-                    return PawnPath.NotFound;
-                }
-
-                foreach (Direction direction in DirectionUtils.AllDirections)
-                {
-                    IntVec3 neighborCell = direction.From(current);
-                    if (neighborCell.InBounds(map))
-                    {
-                        CellRef neighbor = map.GetCellRef(neighborCell);
-                        //debugReplay.DrawLine(current, neighbor);
-                        //debugReplay.NextFrame();
-
-                        MoveData moveData = new MoveData(neighbor, direction);
-                        if (!MoveIsValid(moveData))
-                            continue;
-
-                        int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
-                        if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
-                        {
-                            if (!closedSet.ContainsKey(neighbor))
-                            {
-                                closedSet[neighbor] = new CellNode
-                                {
-                                    heuristicCost = Heuristic(neighbor)
-                                };
-                            }
-                            closedSet[neighbor].knownCost = neighborNewCost;
-                            closedSet[neighbor].parent = current;
-
-                            if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].TotalCost))
-                            {
-                                openSet.UpdatePriority(neighbor, closedSet[neighbor].TotalCost);
-                            }
-                        }
-                    }
-                }
-                closedNodes++;
-            }
-
-            Pawn pawn = pathfindData.traverseParms.pawn;
-            string currentJob = pawn?.CurJob?.ToString() ?? "null";
-            string faction = pawn?.Faction?.ToString() ?? "null";
-            Log.Warning("[Trailblazer] " + pawn + " pathing from " + startCell + " to " + destCell +
-                " ran out of cells to process.\n" + "Job:" + currentJob + "\nFaction: " + faction, false);
-            //TODO
-            DebugDrawFinalPath();
-            //debugVisualizer.RegisterReplay(debugReplay);
-            return PawnPath.NotFound;
         }
 
-        private int Heuristic(CellRef cell)
+        protected override int Heuristic(CellRef cell)
         {
             if (!rraClosedSet.ContainsKey(cell))
             {
@@ -229,7 +95,6 @@ namespace Trailblazer
                     return;
                 }
 
-                //foreach (CellRef neighbor in current.Neighbors())
                 foreach (Direction direction in DirectionUtils.AllDirections)
                 {
                     IntVec3 neighborCell = direction.From(current);
@@ -250,7 +115,6 @@ namespace Trailblazer
                             {
                                 rraOpenSet.UpdatePriority(neighbor, estimatedCost);
                             }
-                            //DebugDrawRegionNode(neighbor, string.Format("{0} ({1})", newCost, moveCost));
                         }
                     }
                 }
@@ -266,19 +130,6 @@ namespace Trailblazer
             return DistanceBetween(start, target);
         }
 
-        private PawnPath FinalizedPath(CellRef final)
-        {
-            PawnPath emptyPawnPath = pathfindData.map.pawnPathPool.GetEmptyPawnPath();
-            CellRef cell = final;
-            while (cell != null)
-            {
-                emptyPawnPath.AddNode(cell);
-                cell = closedSet[cell].parent;
-            }
-            emptyPawnPath.SetupFound(closedSet[final].knownCost, false);
-            return emptyPawnPath;
-        }
-
         // === Utility methods ===
 
         /// <summary>
@@ -292,48 +143,6 @@ namespace Trailblazer
             int dx = Math.Abs(cellA.x - cellB.x);
             int dz = Math.Abs(cellA.z - cellB.z);
             return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
-        }
-
-        // === Debug methods ===
-
-        private void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
-        {
-            pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, text, duration);
-        }
-
-        private IntVec3 DebugFindLinkCenter(RegionLink link)
-        {
-            if (link.span.dir == SpanDirection.North)
-            {
-                return link.span.root + new IntVec3(0, 0, link.span.length / 2);
-            }
-            return link.span.root + new IntVec3(link.span.length / 2, 0, 0);
-        }
-
-        private void DebugDrawFinalPath()
-        {
-            if (DebugViewSettings.drawPaths)
-            {
-                int mapCells = pathfindData.map.Area;
-                foreach (KeyValuePair<CellRef, CellNode> pair in closedSet)
-                {
-                    string costString = string.Format("{0} + {1} = {2}", pair.Value.knownCost, pair.Value.heuristicCost, pair.Value.TotalCost);
-                    FlashCell(pair.Key, costString, 50);
-                }
-
-                foreach (CellRef cell in openSet)
-                {
-                    FlashCell(cell, null, 50);
-                }
-
-                foreach (CellRef cell in rraClosedSet.Keys)
-                {
-                    if (!closedSet.ContainsKey(cell))
-                    {
-                        FlashCell(cell, null, 50, 0.05f);
-                    }
-                }
-            }
         }
     }
 }

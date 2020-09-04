@@ -133,6 +133,18 @@ namespace Trailblazer
                                  let region = regionGrid.GetValidRegionAt(cell)
                                  where region != null
                                  select region);
+
+
+            // Initialize the RRA* algorithm
+            IEnumerable<LinkNode> initialNodes = (from region in destRegions
+                                                  from link in region.links
+                                                  from node in LinkNode.Both(link)
+                                                  select node).Distinct();
+            foreach (LinkNode node in initialNodes)
+            {
+                rraClosedSet[node] = RRAHeuristic(node, destCell);
+                rraOpenSet.Enqueue(node, rraClosedSet[node]);
+            }
         }
 
         protected override int Heuristic(CellRef cell)
