@@ -14,19 +14,7 @@ namespace Trailblazer.Rules
 
         public CostRule_AllowedArea(PathfindData pathfindData) : base(pathfindData)
         {
-            Pawn pawn = pathfindData.traverseParms.pawn;
-
-            Area area = null;
-            if (pawn != null && pawn.playerSettings != null && !pawn.Drafted && ForbidUtility.CaresAboutForbidden(pawn, true))
-            {
-                area = pawn.playerSettings.EffectiveAreaRestrictionInPawnCurrentMap;
-                if (area != null && area.TrueCount <= 0)
-                {
-                    area = null;
-                }
-            }
-
-            allowedArea = area;
+            allowedArea = GetAllowedArea(pathfindData.traverseParms.pawn);
         }
 
         public override bool Applies()
@@ -41,6 +29,20 @@ namespace Trailblazer.Rules
                 return Cost_OutsideAllowedArea;
             }
             return 0;
+        }
+
+        public static Area GetAllowedArea(Pawn pawn)
+        {
+            Area area = null;
+            if (pawn != null && pawn.playerSettings != null && !pawn.Drafted && ForbidUtility.CaresAboutForbidden(pawn, true))
+            {
+                area = pawn.playerSettings.EffectiveAreaRestrictionInPawnCurrentMap;
+                if (area != null && area.TrueCount <= 0)
+                {
+                    area = null;
+                }
+            }
+            return area;
         }
     }
 }

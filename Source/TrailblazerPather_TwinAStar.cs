@@ -33,8 +33,8 @@ namespace Trailblazer
         // RRA* params
         private SimplePriorityQueue<CellRef, int> rraOpenSet;
         private readonly Dictionary<CellRef, int> rraClosedSet;
-        private readonly PassabilityRule rraPassRule;
-        private readonly CostRule[] rraCostRules;
+        private readonly List<PassabilityRule> rraPassRules;
+        private readonly List<CostRule> rraCostRules;
 
         // Shared params
         private readonly Map map;
@@ -55,13 +55,18 @@ namespace Trailblazer
 
             rraOpenSet = new SimplePriorityQueue<CellRef, int>();
             rraClosedSet = new Dictionary<CellRef, int>();
-            rraPassRule = new PassabilityRule_PathGrid(pathfindData);
+            rraPassRules = new PassabilityRule[]
+            {
+                new PassabilityRule_PathGrid(pathfindData),
+                new PassabilityRule_DoorByPawn(pathfindData),
+                new PassabilityRule_NoPassDoors(pathfindData)
+            }.Where(r => r.Applies()).ToList();
             rraCostRules = new CostRule[]
             {
                 new CostRule_PathGrid(pathfindData),
                 new CostRule_Walls(pathfindData),
                 new CostRule_MoveTicks(pathfindData)
-            };
+            }.Where(r => r.Applies()).ToList();
 
             map = pathfindData.map;
             startCell = pathfindData.start;
@@ -233,7 +238,7 @@ namespace Trailblazer
                     {
                         MoveData moveData = new MoveData(neighbor, direction);
 
-                        if (!rraPassRule.IsPassable(moveData))
+                        if (!rraPassRules.All(r => r.IsPassable(moveData)))
                             continue;
 
                         int newCost = rraClosedSet[current] + costRules.Sum(r => r.GetCost(moveData));
