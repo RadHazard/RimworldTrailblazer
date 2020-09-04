@@ -4,6 +4,8 @@
   <TrailblazerModName>Trailblazer</TrailblazerModName>
 
   <TrailblazerPathfinder>Pathfinder</TrailblazerPathfinder>
+  <TrailblazerVanilla>Vanilla</TrailblazerVanilla>
+  <TrailblazerVanillaDesc>Disables Trailblazer and just uses the vanilla pathfinder</TrailblazerVanillaDesc>
   <TrailblazerAStar>Standard A*</TrailblazerAStar>
   <TrailblazerAStarDesc>Standard A* with a straight line distance heuristic</TrailblazerAStarDesc>
   <TrailblazerHAStar>Heirarchial A*</TrailblazerHAStar>

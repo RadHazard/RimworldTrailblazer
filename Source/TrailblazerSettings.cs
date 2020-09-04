@@ -36,6 +36,7 @@ namespace Trailblazer
             listingStandard.Label("TrailblazerPathfinder".Translate());
             var radioButtons = new RadioButton<PathfinderEnum>[]
             {
+                new RadioButton<PathfinderEnum>("TrailblazerVanilla", PathfinderEnum.Vanilla, "TrailblazerVanillaDesc"),
                 new RadioButton<PathfinderEnum>("TrailblazerAStar", PathfinderEnum.AStar, "TrailblazerAStarDesc"),
                 new RadioButton<PathfinderEnum>("TrailblazerHAStar", PathfinderEnum.HAStar, "TrailblazerHAStarDesc"),
                 new RadioButton<PathfinderEnum>("TrailblazerTwinAStar", PathfinderEnum.TwinAStar, "TrailblazerTwinAStarDesc")
@@ -75,6 +76,7 @@ namespace Trailblazer
 
     public enum PathfinderEnum
     {
+        Vanilla,
         AStar,
         HAStar,
         TwinAStar

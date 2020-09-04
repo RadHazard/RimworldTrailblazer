@@ -24,6 +24,10 @@ namespace Trailblazer
     {
         static bool Prefix(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode, Map ___map, ref PawnPath __result)
         {
+            if (TrailblazerSettings.pathfinder == PathfinderEnum.Vanilla)
+            {
+                return true;
+            }
             __result = Trailblazer.FindPath(___map, start, dest, traverseParms, peMode);
             return false;
         }
