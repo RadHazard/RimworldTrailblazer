@@ -1,4 +1,5 @@
-﻿using Verse;
+﻿using System;
+using Verse;
 using Verse.AI;
 
 namespace Trailblazer
@@ -49,7 +50,22 @@ namespace Trailblazer
             }
 
             PathfindData pathfindData = new PathfindData(map, map.GetCellRef(start), dest, traverseParms, peMode);
-            return new TrailblazerPather_TwinAStar(pathfindData).FindPath(); //TODO allow swapping out pathers for debugging
+            TrailblazerPather pather;
+            switch (TrailblazerSettings.pathfinder)
+            {
+                case PathfinderEnum.AStar:
+                    pather = new TrailblazerPather_AStar(pathfindData);
+                    break;
+                case PathfinderEnum.HAStar:
+                    pather = new TrailblazerPather_HAStar(pathfindData);
+                    break;
+                case PathfinderEnum.TwinAStar:
+                    pather = new TrailblazerPather_TwinAStar(pathfindData);
+                    break;
+                default:
+                    throw new Exception("Invalid pathfinder");
+            }
+            return pather.FindPath();
         }
     }
 }

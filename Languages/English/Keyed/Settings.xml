@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <TrailblazerModName>Trailblazer</TrailblazerModName>
+
+  <TrailblazerPathfinder>Pathfinder</TrailblazerPathfinder>
+  <TrailblazerAStar>Standard A*</TrailblazerAStar>
+  <TrailblazerAStarDesc>Standard A* with a straight line distance heuristic</TrailblazerAStarDesc>
+  <TrailblazerHAStar>Heirarchial A*</TrailblazerHAStar>
+  <TrailblazerHAStarDesc>A variant of A* that uses a second round of Reverse Resumable A* pathing on the region grid as the heuristic</TrailblazerHAStarDesc>
+  <TrailblazerTwinAStar>Twin A*</TrailblazerTwinAStar>
+  <TrailblazerTwinAStarDesc>A variant of A* that uses a second round of Reverse Resumable A* that only accounts for terrain cost as the heuristic</TrailblazerTwinAStarDesc>
+
+</LanguageData>

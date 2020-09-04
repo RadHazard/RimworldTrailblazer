@@ -80,6 +80,7 @@
     <Compile Include="Rules\PassabilityRule_PathGrid.cs" />
     <Compile Include="Rules\CostRule_Buildings.cs" />
     <Compile Include="Rules\CostRule_Walls.cs" />
+    <Compile Include="TrailblazerSettings.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
