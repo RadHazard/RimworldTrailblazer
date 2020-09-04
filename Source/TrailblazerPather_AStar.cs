@@ -16,6 +16,21 @@ namespace Trailblazer
         // Pathing cost constants
         protected const int SearchLimit = 160000;
 
+        protected class CellRefNode : FastPriorityQueueNode
+        {
+            public readonly CellRef cell;
+
+            public CellRefNode(CellRef cell)
+            {
+                this.cell = cell;
+            }
+
+            public static implicit operator CellRef(CellRefNode cellRefNode)
+            {
+                return cellRefNode.cell;
+            }
+        }
+
         private class CellNode
         {
             public int knownCost;
@@ -25,8 +40,9 @@ namespace Trailblazer
         }
 
         // Main A* params
-        private readonly SimplePriorityQueue<CellRef, int> openSet;
+        private readonly Priority_Queue.FastPriorityQueue<CellRefNode> openSet;
         private readonly Dictionary<CellRef, CellNode> closedSet;
+        private readonly Dictionary<CellRef, CellRefNode> cellRefNodeCache;
 
         protected readonly Map map;
         protected readonly CellRef startCell;
@@ -42,10 +58,13 @@ namespace Trailblazer
 
         public TrailblazerPather_AStar(PathfindData pathfindData) : base(pathfindData)
         {
-            openSet = new SimplePriorityQueue<CellRef, int>();
+            map = pathfindData.map;
+
+            openSet = new Priority_Queue.FastPriorityQueue<CellRefNode>(map.Area);
             closedSet = new Dictionary<CellRef, CellNode>();
 
-            map = pathfindData.map;
+            cellRefNodeCache = new Dictionary<CellRef, CellRefNode>();
+
             startCell = pathfindData.start;
             destCell = pathfindData.map.GetCellRef(pathfindData.dest.Cell);
 
@@ -64,12 +83,14 @@ namespace Trailblazer
                 heuristicCost = Heuristic(startCell),
                 parent = null
             };
-            openSet.Enqueue(startCell, 0);
+            openSet.Enqueue(GetNode(startCell), 0);
 
             int closedNodes = 0;
             while (openSet.Count > 0)
             {
-                CellRef current = openSet.Dequeue();
+                //TODO
+                CellRefNode current = Dequeue(openSet);
+                //CellRef current = openSet.Dequeue();
                 debugReplay.DrawCell(current);
                 debugReplay.NextFrame();
 
@@ -95,7 +116,7 @@ namespace Trailblazer
 
                 foreach (Direction direction in DirectionUtils.AllDirections)
                 {
-                    IntVec3 neighborCell = direction.From(current);
+                    IntVec3 neighborCell = direction.From(current.cell);
                     if (neighborCell.InBounds(map))
                     {
                         CellRef neighbor = map.GetCellRef(neighborCell);
@@ -119,10 +140,12 @@ namespace Trailblazer
                             closedSet[neighbor].knownCost = neighborNewCost;
                             closedSet[neighbor].parent = current;
 
-                            if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].TotalCost))
-                            {
-                                openSet.UpdatePriority(neighbor, closedSet[neighbor].TotalCost);
-                            }
+                            //TODO
+                            Enqueue(openSet, GetNode(neighbor), closedSet[neighbor].TotalCost);
+                            //if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].TotalCost))
+                            //{
+                            //    openSet.UpdatePriority(neighbor, closedSet[neighbor].TotalCost);
+                            //}
                         }
                     }
                 }
@@ -147,6 +170,21 @@ namespace Trailblazer
             return GenMath.OctileDistance(dx, dz, moveTicksCardinal, moveTicksDiagonal);
         }
 
+        /// <summary>
+        /// Converts a CellRef to a CellRefNode.  Caches nodes to ensure Contains() and similar methods function
+        /// properly on the priority queue.
+        /// </summary>
+        /// <returns>The node.</returns>
+        /// <param name="cellRef">Cell reference.</param>
+        private CellRefNode GetNode(CellRef cellRef)
+        {
+            if (!cellRefNodeCache.ContainsKey(cellRef))
+            {
+                cellRefNodeCache[cellRef] = new CellRefNode(cellRef);
+            }
+            return cellRefNodeCache[cellRef];
+        }
+
         private PawnPath FinalizedPath(CellRef final)
         {
             PawnPath emptyPawnPath = pathfindData.map.pawnPathPool.GetEmptyPawnPath();
@@ -161,6 +199,23 @@ namespace Trailblazer
         }
 
         // === Debug methods ===
+        // Used as hooks for Dubs Performance Analyzer because it can't see the Priority_Queue assembly
+        protected static CellRefNode Dequeue(Priority_Queue.FastPriorityQueue<CellRefNode> queue)
+        {
+            return queue.Dequeue();
+        }
+
+        protected static void Enqueue(Priority_Queue.FastPriorityQueue<CellRefNode> queue, CellRefNode node, int priority)
+        {
+            if (queue.Contains(node))
+            {
+                queue.UpdatePriority(node, priority);
+            }
+            else
+            {
+                queue.Enqueue(node, priority);
+            }
+        }
 
         protected void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
         {

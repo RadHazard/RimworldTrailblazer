@@ -16,15 +16,21 @@ namespace Trailblazer
     public class TrailblazerPather_TwinAStar : TrailblazerPather_AStar
     {
         // RRA* params
-        private SimplePriorityQueue<CellRef, int> rraOpenSet;
+        private Priority_Queue.FastPriorityQueue<CellRefNode> rraOpenSet;
         private readonly Dictionary<CellRef, int> rraClosedSet;
+
+        private readonly Dictionary<CellRef, CellRefNode> cellRefNodeCache;
+
         private readonly List<PassabilityRule> rraPassRules;
         private readonly List<CostRule> rraCostRules;
 
         public TrailblazerPather_TwinAStar(PathfindData pathfindData) : base(pathfindData)
         {
-            rraOpenSet = new SimplePriorityQueue<CellRef, int>();
+            rraOpenSet = new Priority_Queue.FastPriorityQueue<CellRefNode>(map.Area);
             rraClosedSet = new Dictionary<CellRef, int>();
+
+            cellRefNodeCache = new Dictionary<CellRef, CellRefNode>();
+
             rraPassRules = new PassabilityRule[]
             {
                 new PassabilityRule_PathGrid(pathfindData),
@@ -43,7 +49,7 @@ namespace Trailblazer
             {
                 CellRef cellRef = pathfindData.map.GetCellRef(cell);
                 rraClosedSet[cellRef] = 0;
-                rraOpenSet.Enqueue(cellRef, 0);
+                rraOpenSet.Enqueue(GetNode(cellRef), 0);
             }
         }
 
@@ -57,24 +63,18 @@ namespace Trailblazer
         }
 
         /// <summary>
-        /// Initiates or resumes RRA* pathfinding on the region grid with the given target.
-        /// 
-        /// TODO rewrite to explain changes
-        /// NOTE - This algorithm inverts regions and links.  The nodes are RegionLinks, and the edges are between every
-        /// link of a region.  Cost is the octaline distance between the closest respective cell of each link.
-        /// (The goal cell is also considered a node. It shares edges with every RegionLink belonging to its region)
-        /// 
+        /// Initiates or resumes RRA* pathfinding to the given target.
+        /// This variant of RRA* paths on the same grid as the main A* pather but only uses a subset of rules
         /// </summary>
         /// <returns>The region link closest to the target cell</returns>
         /// <param name="targetCell">Target cell.</param>
         private void ReverseResumableAStar(CellRef targetCell)
         {
             // Rebuild the open set based on the new target
-            var oldSet = rraOpenSet;
-            rraOpenSet = new SimplePriorityQueue<CellRef, int>();
-            foreach (CellRef cell in oldSet)
+            CellRefNode[] cachedNodes = rraOpenSet.ToArray(); // Cache the nodes because we'll be messing with the queue
+            foreach (CellRefNode cell in cachedNodes)
             {
-                rraOpenSet.Enqueue(cell, rraClosedSet[cell] + RRAHeuristic(cell, targetCell));
+                rraOpenSet.UpdatePriority(cell, rraClosedSet[cell] + RRAHeuristic(cell, targetCell));
             }
 
             int closedNodes = 0;
@@ -111,9 +111,15 @@ namespace Trailblazer
                         {
                             rraClosedSet[neighbor] = newCost;
                             int estimatedCost = newCost + RRAHeuristic(neighbor, targetCell);
-                            if (!rraOpenSet.EnqueueWithoutDuplicates(neighbor, estimatedCost))
+
+                            CellRefNode neighborNode = GetNode(neighbor);
+                            if (rraOpenSet.Contains(neighborNode))
                             {
-                                rraOpenSet.UpdatePriority(neighbor, estimatedCost);
+                                rraOpenSet.UpdatePriority(neighborNode, estimatedCost);
+                            }
+                            else
+                            {
+                                rraOpenSet.Enqueue(neighborNode, estimatedCost);
                             }
                         }
                     }
@@ -128,6 +134,21 @@ namespace Trailblazer
         private int RRAHeuristic(CellRef start, CellRef target)
         {
             return DistanceBetween(start, target);
+        }
+
+        /// <summary>
+        /// Converts a CellRef to a CellRefNode.  Caches nodes to ensure Contains() and similar methods function
+        /// properly on the priority queue.
+        /// </summary>
+        /// <returns>The node.</returns>
+        /// <param name="cellRef">Cell reference.</param>
+        private CellRefNode GetNode(CellRef cellRef)
+        {
+            if (!cellRefNodeCache.ContainsKey(cellRef))
+            {
+                cellRefNodeCache[cellRef] = new CellRefNode(cellRef);
+            }
+            return cellRefNodeCache[cellRef];
         }
 
         // === Utility methods ===

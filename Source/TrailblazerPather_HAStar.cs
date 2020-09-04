@@ -18,29 +18,39 @@ namespace Trailblazer
         /// <summary>
         /// Represents a node on the region grid.  Each region link becomes two nodes joined by an implicit edge.
         /// </summary>
-        private class LinkNode
+        private class LinkNode : FastPriorityQueueNode
         {
             public readonly Map map;
             public readonly RegionLink link;
-            public readonly bool end;
+            public readonly bool top;
 
             private static readonly Dictionary<LinkNode, List<LinkNode>> neighborCache = new Dictionary<LinkNode, List<LinkNode>>();
+            private static readonly Dictionary<RegionLink, LinkNode> topCache = new Dictionary<RegionLink, LinkNode>();
+            private static readonly Dictionary<RegionLink, LinkNode> bottomCache = new Dictionary<RegionLink, LinkNode>();
 
-            public LinkNode(RegionLink link, bool end)
+            private LinkNode(RegionLink link, bool top)
             {
                 map = link.RegionA.Map;
                 this.link = link;
-                this.end = end;
+                this.top = top;
             }
 
             public static LinkNode Top(RegionLink link)
             {
-                return new LinkNode(link, true);
+                if (!topCache.ContainsKey(link))
+                {
+                    topCache[link] = new LinkNode(link, true);
+                }
+                return topCache[link];
             }
 
             public static LinkNode Bottom(RegionLink link)
             {
-                return new LinkNode(link, false);
+                if (!bottomCache.ContainsKey(link))
+                {
+                    bottomCache[link] = new LinkNode(link, false);
+                }
+                return bottomCache[link];
             }
 
             public static IEnumerable<LinkNode> Both(RegionLink link)
@@ -51,21 +61,20 @@ namespace Trailblazer
 
             public CellRef GetCell()
             {
-                return map.GetCellRef(end ? link.span.Cells.Last() : link.span.root);
+                return map.GetCellRef(top ? link.span.Cells.Last() : link.span.root);
             }
 
             public LinkNode PairedNode()
             {
-                return new LinkNode(link, !end);
-            }
-
-            public bool IsPairedNode(LinkNode linkNode)
-            {
-                return end != linkNode.end && link.UniqueHashCode() == linkNode.link.UniqueHashCode();
+                if (top)
+                {
+                    return Bottom(link);
+                }
+                return Top(link);
             }
 
             /// <summary>
-            /// Returns the list of neighboring links.  Links are considered to share an edge if they share a region.
+            /// Returns an enumerable of neighboring links.  Links are considered to share an edge if they share a region.
             /// </summary>
             /// <returns>The neighbors.</returns>
             public IEnumerable<LinkNode> Neighbors()
@@ -84,6 +93,11 @@ namespace Trailblazer
                 return neighborCache[this];
             }
 
+            /// <summary>
+            /// Returns an enumerable of the region(s) that this LinkNode and the other LinkNode have in common.
+            /// </summary>
+            /// <returns>The regions.</returns>
+            /// <param name="other">Other.</param>
             public IEnumerable<Region> CommonRegions(LinkNode other)
             {
                 return from region in link.regions
@@ -91,6 +105,16 @@ namespace Trailblazer
                        select region;
             }
 
+            /// <summary>
+            /// Clears the various caches.  Must be called at the beginning of every pathfind operation to ensure
+            /// bad link data doesn't get reused.
+            /// </summary>
+            public static void ClearCaches()
+            {
+                neighborCache.Clear();
+                topCache.Clear();
+                bottomCache.Clear();
+            }
 
             public static implicit operator RegionLink(LinkNode node)
             {
@@ -108,27 +132,33 @@ namespace Trailblazer
 
             public bool Equals(LinkNode linkNode)
             {
-                return end == linkNode.end && link.UniqueHashCode() == linkNode.link.UniqueHashCode();
+                return top == linkNode.top && link.UniqueHashCode() == linkNode.link.UniqueHashCode();
             }
 
             public override int GetHashCode()
             {
                 // Arbitrary numbers chosen by fair dice roll ;)
-                return Gen.HashCombineInt((int)link.UniqueHashCode(), end ? 2940 : 6003);
+                return Gen.HashCombineInt((int)link.UniqueHashCode(), top ? 2940 : 6003);
             }
         }
 
         // RRA* params
-        private SimplePriorityQueue<LinkNode, int> rraOpenSet;
+        private Priority_Queue.FastPriorityQueue<LinkNode> rraOpenSet;
         private readonly Dictionary<LinkNode, int> rraClosedSet;
         private readonly RegionGrid regionGrid;
         private readonly HashSet<Region> destRegions = new HashSet<Region>();
+        private readonly int maxLinks;
 
         public TrailblazerPather_HAStar(PathfindData pathfindData) : base(pathfindData)
         {
-            rraOpenSet = new SimplePriorityQueue<LinkNode, int>();
-            rraClosedSet = new Dictionary<LinkNode, int>();
             regionGrid = pathfindData.map.regionGrid;
+            int regions = regionGrid.AllRegions.Count();
+            // Worst case scenario - a large region where every single edge cell links to a different neighboring region
+            maxLinks = Region.GridSize * 4 * regions;
+
+            rraOpenSet = new Priority_Queue.FastPriorityQueue<LinkNode>(maxLinks);
+            rraClosedSet = new Dictionary<LinkNode, int>();
+
             destRegions.AddRange(from cell in pathfindData.DestRect.Cells
                                  let region = regionGrid.GetValidRegionAt(cell)
                                  where region != null
@@ -136,6 +166,7 @@ namespace Trailblazer
 
 
             // Initialize the RRA* algorithm
+            LinkNode.ClearCaches();
             IEnumerable<LinkNode> initialNodes = (from region in destRegions
                                                   from link in region.links
                                                   from node in LinkNode.Both(link)
@@ -173,11 +204,9 @@ namespace Trailblazer
         /// <summary>
         /// Initiates or resumes RRA* pathfinding on the region grid with the given target.
         /// 
-        /// TODO rewrite to explain changes
-        /// NOTE - This algorithm inverts regions and links.  The nodes are RegionLinks, and the edges are between every
-        /// link of a region.  Cost is the octaline distance between the closest respective cell of each link.
-        /// (The goal cell is also considered a node. It shares edges with every RegionLink belonging to its region)
-        /// 
+        /// The grid is made up of nodes, where each region link is represented by two nodes (either end of the link).
+        /// All nodes of all links that share a region are considered to share edges, with the cost of the edge
+        /// being the octaline distance between the two cells.
         /// </summary>
         /// <returns>The region link closest to the target cell</returns>
         /// <param name="targetCell">Target cell.</param>
@@ -186,18 +215,17 @@ namespace Trailblazer
             Region targetRegion = regionGrid.GetValidRegionAt_NoRebuild(targetCell);
 
             // Rebuild the open set based on the new target
-            var oldSet = rraOpenSet;
-            rraOpenSet = new SimplePriorityQueue<LinkNode, int>();
-            foreach (LinkNode link in oldSet)
+            LinkNode[] cachedNodes = rraOpenSet.ToArray(); // Cache the nodes because we'll be messing with the queue
+            foreach (LinkNode link in cachedNodes)
             {
-                rraOpenSet.Enqueue(link, rraClosedSet[link] + RRAHeuristic(link, targetCell));
+                rraOpenSet.UpdatePriority(link, rraClosedSet[link] + RRAHeuristic(link, targetCell));
             }
 
             int closedNodes = 0;
             while (rraOpenSet.Count > 0)
             {
                 LinkNode currentNode = rraOpenSet.Dequeue();
-                debugReplay.DrawCell(currentNode.GetCell());
+                //debugReplay.DrawCell(currentNode.GetCell());
 
                 // Check if we've reached our goal
                 if (currentNode.link.regions.Contains(targetRegion))
@@ -211,14 +239,10 @@ namespace Trailblazer
                     return null;
                 }
 
-                // TODO - maybe this shouldn't be filtered here?
-                // We could just add a heavy fixed cost to untraversable regions
-                //where region.Allows(pathfindData.traverseParms, false)
-
                 foreach (LinkNode neighbor in currentNode.Neighbors())
                 {
                     //DebugDrawRegionEdge(currentNode, neighbor);
-                    debugReplay.DrawLine(currentNode.GetCell(), neighbor.GetCell());
+                    //debugReplay.DrawLine(currentNode.GetCell(), neighbor.GetCell());
 
                     int moveCost = DistanceBetween(currentNode, neighbor);
                     // Penalize the edge if the two links don't share a pathable region
@@ -233,14 +257,19 @@ namespace Trailblazer
                     {
                         rraClosedSet[neighbor] = newCost;
                         int estimatedCost = newCost + RRAHeuristic(neighbor, targetCell);
-                        if (!rraOpenSet.EnqueueWithoutDuplicates(neighbor, estimatedCost))
+
+                        if (rraOpenSet.Contains(neighbor))
                         {
                             rraOpenSet.UpdatePriority(neighbor, estimatedCost);
+                        }
+                        else
+                        {
+                            rraOpenSet.Enqueue(neighbor, estimatedCost);
                         }
                         //DebugDrawRegionNode(neighbor, string.Format("{0} ({1})", newCost, moveCost));
                     }
                 }
-                debugReplay.NextFrame();
+                //debugReplay.NextFrame();
                 closedNodes++;
             }
 
