@@ -6,7 +6,6 @@
   - Write tests for each rule
   - Write tests for each pathfinder
 - Cache passibility/cost for cells?
-- Add a setting to swap between pathfinders
 - Expand debug visualizations
   - Show costs for individual rules
   - Pathfinder-specific visualization

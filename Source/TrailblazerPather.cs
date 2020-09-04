@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using RimWorld;
 using Trailblazer.Rules;
-using Verse;
 using Verse.AI;
 
 namespace Trailblazer
