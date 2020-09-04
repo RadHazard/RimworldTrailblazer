@@ -54,7 +54,6 @@
     <Compile Include="HarmonyPatches.cs" />
     <Compile Include="TrailblazerPather.cs" />
     <Compile Include="Trailblazer.cs" />
-    <Compile Include="TrailblazerPather_Vanilla.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Direction.cs" />
     <Compile Include="Rules\CostRule.cs" />
