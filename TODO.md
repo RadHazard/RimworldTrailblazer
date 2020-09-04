@@ -1,6 +1,5 @@
 # TODO list:
 
-- Collapse the 3 AStar variants into a base AStar and child classes to reduce duplication
 - Optimize the pathfinders
 - Write unit tests using RimTest
   - Write tests for each rule
