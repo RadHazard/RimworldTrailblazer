@@ -6,15 +6,15 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell if it's outside the allowed area of the pawn
     /// </summary>
-    public class TrailblazerRule_CostAllowedArea : TrailblazerRule
+    public class CostRule_AllowedArea : CostRule
     {
-        protected const int Cost_OutsideAllowedArea = 600;
+        public const int Cost_OutsideAllowedArea = 600;
 
         protected readonly Area allowedArea;
 
-        public TrailblazerRule_CostAllowedArea(PathfindData pathData) : base(pathData)
+        public CostRule_AllowedArea(PathfindData pathfindData) : base(pathfindData)
         {
-            Pawn pawn = pathData.traverseParms.pawn;
+            Pawn pawn = pathfindData.traverseParms.pawn;
 
             Area area = null;
             if (pawn != null && pawn.playerSettings != null && !pawn.Drafted && ForbidUtility.CaresAboutForbidden(pawn, true))
@@ -34,7 +34,7 @@ namespace Trailblazer.Rules
             return allowedArea != null;
         }
 
-        public override int? GetConstantCost(MoveData moveData)
+        public override int GetCost(MoveData moveData)
         {
             if (!allowedArea[moveData.cell.Index])
             {

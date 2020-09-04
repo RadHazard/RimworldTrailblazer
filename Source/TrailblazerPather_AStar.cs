@@ -45,8 +45,8 @@ namespace Trailblazer
             }
             else
             {
-                moveTicksCardinal = TrailblazerRule_CostMoveTicks.DefaultMoveTicksCardinal;
-                moveTicksDiagonal = TrailblazerRule_CostMoveTicks.DefaultMoveTicksDiagonal;
+                moveTicksCardinal = CostRule_MoveTicks.DefaultMoveTicksCardinal;
+                moveTicksDiagonal = CostRule_MoveTicks.DefaultMoveTicksDiagonal;
             }
 
             debugMat++;
@@ -95,13 +95,11 @@ namespace Trailblazer
                     {
                         CellRef neighbor = map.GetCellRef(neighborCell);
                         MoveData moveData = new MoveData(neighbor, direction);
-                        int? moveCost = CalcMoveCost(moveData);
-                        if (moveCost == null)
-                        {
-                            continue;
-                        }
 
-                        int neighborNewCost = closedSet[current].knownCost + moveCost ?? 0;
+                        if (!MoveIsValid(moveData))
+                            continue;
+
+                        int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
                         if (!closedSet[neighbor].visited || closedSet[neighbor].knownCost > neighborNewCost)
                         {
                             if (!closedSet[neighbor].visited)

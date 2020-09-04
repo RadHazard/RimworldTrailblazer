@@ -10,7 +10,8 @@ namespace Trailblazer
 {
     /// <summary>
     /// Trailblazer pather that uses a RRA* implementation to guide the forward A* implementation.  Unlike HAStar, this
-    /// one paths on the cell grid for both directions, but the RRA* only counts terrain and not the full ruleset.
+    /// one paths on the cell grid for both directions, but the RRA* only uses a subset of the passability and cost
+    /// rules.
     /// </summary>
     public class TrailblazerPather_TwinAStar : TrailblazerPather
     {
@@ -32,7 +33,8 @@ namespace Trailblazer
         // RRA* params
         private SimplePriorityQueue<CellRef, int> rraOpenSet;
         private readonly Dictionary<CellRef, int> rraClosedSet;
-        private readonly bool passDestroyableThings;
+        private readonly PassabilityRule rraPassRule;
+        private readonly CostRule[] rraCostRules;
 
         // Shared params
         private readonly Map map;
@@ -53,7 +55,13 @@ namespace Trailblazer
 
             rraOpenSet = new SimplePriorityQueue<CellRef, int>();
             rraClosedSet = new Dictionary<CellRef, int>();
-            passDestroyableThings = pathfindData.traverseParms.mode.CanDestroy();
+            rraPassRule = new PassabilityRule_PathGrid(pathfindData);
+            rraCostRules = new CostRule[]
+            {
+                new CostRule_PathGrid(pathfindData),
+                new CostRule_Walls(pathfindData),
+                new CostRule_MoveTicks(pathfindData)
+            };
 
             map = pathfindData.map;
             startCell = pathfindData.start;
@@ -66,8 +74,8 @@ namespace Trailblazer
             }
             else
             {
-                moveTicksCardinal = TrailblazerRule_CostMoveTicks.DefaultMoveTicksCardinal;
-                moveTicksDiagonal = TrailblazerRule_CostMoveTicks.DefaultMoveTicksDiagonal;
+                moveTicksCardinal = CostRule_MoveTicks.DefaultMoveTicksCardinal;
+                moveTicksDiagonal = CostRule_MoveTicks.DefaultMoveTicksDiagonal;
             }
 
             debugMat++;
@@ -131,13 +139,10 @@ namespace Trailblazer
                         //debugReplay.NextFrame();
 
                         MoveData moveData = new MoveData(neighbor, direction);
-                        int? moveCost = CalcMoveCost(moveData);
-                        if (moveCost == null)
-                        {
+                        if (!MoveIsValid(moveData))
                             continue;
-                        }
 
-                        int neighborNewCost = closedSet[current].knownCost + moveCost ?? 0;
+                        int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
                         if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
                         {
                             if (!closedSet.ContainsKey(neighbor))
@@ -226,24 +231,12 @@ namespace Trailblazer
                     CellRef neighbor = map.GetCellRef(neighborCell);
                     if (neighborCell.InBounds(map))
                     {
-                        int moveCost = direction.IsDiagonal() ? moveTicksDiagonal : moveTicksCardinal;
-                        if (!map.pathGrid.WalkableFast(neighbor.Index))
-                        {
-                            Building building = map.edificeGrid[neighbor.Index];
-                            if (!passDestroyableThings || building == null || !PathFinder.IsDestroyable(building))
-                            {
-                                continue;
-                            }
+                        MoveData moveData = new MoveData(neighbor, direction);
 
-                            moveCost += TrailblazerRule_TestBuildings.Cost_BlockedWallBase;
-                            moveCost += (int)(building.HitPoints * TrailblazerRule_TestBuildings.Cost_BlockedWallExtraPerHitPoint);
-                        }
-                        else
-                        {
-                            moveCost += map.pathGrid.pathGrid[neighbor];
-                        }
+                        if (!rraPassRule.IsPassable(moveData))
+                            continue;
 
-                        int newCost = rraClosedSet[current] + moveCost;
+                        int newCost = rraClosedSet[current] + costRules.Sum(r => r.GetCost(moveData));
                         if (!rraClosedSet.ContainsKey(neighbor) || newCost < rraClosedSet[neighbor])
                         {
                             rraClosedSet[neighbor] = newCost;

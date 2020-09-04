@@ -4,7 +4,7 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost for simply moving from one cell to the next
     /// </summary>
-    public class TrailblazerRule_CostMoveTicks : TrailblazerRule
+    public class CostRule_MoveTicks : CostRule
     {
         public const int DefaultMoveTicksCardinal = 13;
         public const int DefaultMoveTicksDiagonal = 18;
@@ -12,13 +12,12 @@ namespace Trailblazer.Rules
         protected readonly int moveTicksCardinal;
         protected readonly int moveTicksDiagonal;
 
-        public TrailblazerRule_CostMoveTicks(PathfindData pathData) : base(pathData)
+        public CostRule_MoveTicks(PathfindData pathfindData) : base(pathfindData)
         {
-
-            if (pathData.traverseParms.pawn != null)
+            if (pathfindData.traverseParms.pawn != null)
             {
-                moveTicksCardinal = pathData.traverseParms.pawn.TicksPerMoveCardinal;
-                moveTicksDiagonal = pathData.traverseParms.pawn.TicksPerMoveDiagonal;
+                moveTicksCardinal = pathfindData.traverseParms.pawn.TicksPerMoveCardinal;
+                moveTicksDiagonal = pathfindData.traverseParms.pawn.TicksPerMoveDiagonal;
             }
             else
             {
@@ -27,7 +26,7 @@ namespace Trailblazer.Rules
             }
         }
 
-        public override int? GetConstantCost(MoveData moveData)
+        public override int GetCost(MoveData moveData)
         {
             return moveData.diagonal ? moveTicksDiagonal : moveTicksCardinal;
         }

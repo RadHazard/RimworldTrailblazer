@@ -6,13 +6,13 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell based on the AvoidGrid
     /// </summary>
-    public class TrailblazerRule_CostAvoidGrid : TrailblazerRule
+    public class CostRule_AvoidGrid : CostRule
     {
         protected readonly ByteGrid avoidGrid;
 
-        public TrailblazerRule_CostAvoidGrid(PathfindData pathData) : base(pathData)
+        public CostRule_AvoidGrid(PathfindData pathfindData) : base(pathfindData)
         {
-            avoidGrid = pathData.traverseParms.pawn?.GetAvoidGrid(true);
+            avoidGrid = pathfindData.traverseParms.pawn?.GetAvoidGrid(true);
         }
 
         public override bool Applies()
@@ -20,7 +20,7 @@ namespace Trailblazer.Rules
             return avoidGrid != null;
         }
 
-        public override int? GetConstantCost(MoveData moveData)
+        public override int GetCost(MoveData moveData)
         {
             // NOTE
             // For some reason vanilla multiplies this value by 8

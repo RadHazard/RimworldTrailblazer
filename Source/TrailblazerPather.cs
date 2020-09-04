@@ -15,61 +15,88 @@ namespace Trailblazer
     /// </summary>
     public abstract class TrailblazerPather
     {
-        //TODO - this list needs to be extensible
-        protected static readonly List<Func<PathfindData, TrailblazerRule>> ruleFactories = new List<Func<PathfindData, TrailblazerRule>>
-            {
-                r => new TrailblazerRule_PassabilityWater(r),
-                r => new TrailblazerRule_PassabilityDiagonal(r),
-                r => new TrailblazerRule_TestBuildings(r),
-                r => new TrailblazerRule_CostAllowedArea(r),
-                r => new TrailblazerRule_CostAvoidGrid(r),
-                r => new TrailblazerRule_CostBlueprints(r),
-                r => new TrailblazerRule_CostMoveTicks(r),
-                r => new TrailblazerRule_CostPawns(r),
-                r => new TrailblazerRule_CostTerrain(r)
-            };
-
         protected readonly PathfindData pathfindData;
-        protected readonly List<TrailblazerRule> rules;
+        protected readonly List<PassabilityRule> passabilityRules;
+        protected readonly List<CostRule> costRules;
 
         protected TrailblazerPather(PathfindData pathfindData)
         {
             this.pathfindData = pathfindData;
-            rules = (from factory in ruleFactories
-                     let rule = factory.Invoke(this.pathfindData)
-                     where rule.Applies()
-                     select rule).ToList();
+            passabilityRules = PassabilityRules_ThatApply(pathfindData).ToList();
+            costRules = CostRules_ThatApply(pathfindData).ToList();
         }
 
         public abstract PawnPath FindPath();
 
-        protected int? CalcMoveCost(MoveData moveData)
+        protected bool MoveIsValid(MoveData moveData)
         {
-            int cost = 0;
-            foreach (TrailblazerRule rule in rules)
-            {
-                int? ruleCost = rule.GetConstantCost(moveData);
-                if (ruleCost == null)
-                {
-                    return null;
-                }
-                cost += ruleCost ?? 0;
-            }
+            //TODO caching
+            return passabilityRules.All(r => r.IsPassable(moveData));
+        }
 
-            // TODO - evaluate: do we need a multiplier?  None of the vanilla rules use them
-            float multiplier = 1f;
-            foreach (TrailblazerRule rule in rules)
-            {
-                float? ruleMultiplier = rule.GetCostMultiplier(moveData);
-                if (ruleMultiplier == null)
-                {
-                    return null;
-                }
-                multiplier *= ruleMultiplier ?? 1;
-            }
-
+        protected int CalcMoveCost(MoveData moveData)
+        {
+            //TODO caching
+            int cost = costRules.Sum(r => r.GetCost(moveData));
             // Ensure cost is never less than zero
-            return Math.Max(0, (int)Math.Round(cost * multiplier));
+            return Math.Max(0, cost);
+        }
+
+        /// <summary>
+        /// Creates an enumerable of all possible passability rules (regardless of whether they apply)
+        /// Extend this method via harmony patching to add additional passability rules.
+        /// </summary>
+        /// <returns>The passability rules.</returns>
+        /// <param name="pathfindData">Pathfind data.</param>
+        public static IEnumerable<PassabilityRule> PassabilityRules(PathfindData pathfindData)
+        {
+            yield return new PassabilityRule_PathGrid(pathfindData);
+            yield return new PassabilityRule_Diagonals(pathfindData);
+            yield return new PassabilityRule_DoorByPawn(pathfindData);
+            yield return new PassabilityRule_NoPassDoors(pathfindData);
+            yield return new PassabilityRule_Water(pathfindData);
+        }
+
+        /// <summary>
+        /// Calculates and returns the list of passability rules that apply to this pathfinding request
+        /// </summary>
+        /// <returns>The rules that apply.</returns>
+        /// <param name="pathfindData">Pathfind data.</param>
+        public static IEnumerable<PassabilityRule> PassabilityRules_ThatApply(PathfindData pathfindData)
+        {
+            return from rule in PassabilityRules(pathfindData)
+                   where rule.Applies()
+                   select rule;
+        }
+
+        /// <summary>
+        /// Creates an enumerable of all possible cost rules (regardless of whether they apply)
+        /// Extend this method via harmony patching to add additional cost rules.
+        /// </summary>
+        /// <returns>The passability rules.</returns>
+        /// <param name="pathfindData">Pathfind data.</param>
+        public static IEnumerable<CostRule> CostRules(PathfindData pathfindData)
+        {
+            yield return new CostRule_AllowedArea(pathfindData);
+            yield return new CostRule_AvoidGrid(pathfindData);
+            yield return new CostRule_Blueprints(pathfindData);
+            yield return new CostRule_Buildings(pathfindData);
+            yield return new CostRule_Doors(pathfindData);
+            yield return new CostRule_MoveTicks(pathfindData);
+            yield return new CostRule_Pawns(pathfindData);
+            yield return new CostRule_PathGrid(pathfindData);
+        }
+
+        /// <summary>
+        /// Calculates and returns the list of cost rules that apply to this pathfinding request
+        /// </summary>
+        /// <returns>The rules that apply.</returns>
+        /// <param name="pathfindData">Pathfind data.</param>
+        public static IEnumerable<CostRule> CostRules_ThatApply(PathfindData pathfindData)
+        {
+            return from rule in CostRules(pathfindData)
+                   where rule.Applies()
+                   select rule;
         }
     }
 }

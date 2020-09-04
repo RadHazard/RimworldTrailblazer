@@ -8,17 +8,15 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell for the blueprints sitting on it
     /// </summary>
-    public class TrailblazerRule_CostBlueprints : TrailblazerRule
+    public class CostRule_Blueprints : CostRule
     {
-        protected const int Cost_OutsideAllowedArea = 600;
+        private readonly BlueprintGrid blueprintGrid;
+        private readonly Pawn pawn;
 
-        protected readonly BlueprintGrid blueprintGrid;
-        protected readonly Pawn pawn;
-
-        public TrailblazerRule_CostBlueprints(PathfindData pathData) : base(pathData)
+        public CostRule_Blueprints(PathfindData pathfindData) : base(pathfindData)
         {
-            blueprintGrid = pathData.map.blueprintGrid;
-
+            blueprintGrid = pathfindData.map.blueprintGrid;
+            pawn = pathfindData.traverseParms.pawn;
         }
 
         public override bool Applies()
@@ -26,7 +24,7 @@ namespace Trailblazer.Rules
             return pawn != null;
         }
 
-        public override int? GetConstantCost(MoveData moveData)
+        public override int GetCost(MoveData moveData)
         {
             List<Blueprint> list = blueprintGrid.InnerArray[moveData.cell.Index];
             if (list != null)

@@ -6,12 +6,11 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Rule that declares a diagonal movement impossible if something would block it (like a wall)
     /// </summary>
-    public class TrailblazerRule_PassabilityDiagonal : TrailblazerRule
+    public class PassabilityRule_Diagonals : PassabilityRule
     {
+        public PassabilityRule_Diagonals(PathfindData pathfindData) : base(pathfindData) { }
 
-        public TrailblazerRule_PassabilityDiagonal(PathfindData pathData) : base(pathData) { }
-
-        public override int? GetConstantCost(MoveData moveData)
+        public override bool IsPassable(MoveData moveData)
         {
             Direction sideA;
             Direction sideB;
@@ -34,7 +33,7 @@ namespace Trailblazer.Rules
                     sideB = Direction.E;
                     break;
                 default:
-                    return 0;
+                    return true;
             }
 
             if (BlocksDiagonalMovement(sideA.From(moveData.cell)) || BlocksDiagonalMovement(sideB.From(moveData.cell)))
@@ -44,10 +43,10 @@ namespace Trailblazer.Rules
                 // movement is supposed to add a cost of 70 rather than making the move impossible, but if you trace the
                 // boolean value it's always true and that case never happens. I'm replicating the effective result here
                 // (since I don't understand in what cases it should have applied) but if the unused if-statement ever
-                // gets fixed this should be updated with that logic.
-                return null;
+                // gets fixed a cost rule should be added too
+                return false;
             }
-            return 0;
+            return true;
         }
 
         /// <summary>
@@ -57,7 +56,7 @@ namespace Trailblazer.Rules
         /// <param name="cell">The cell to check.</param>
         private bool BlocksDiagonalMovement(IntVec3 cell)
         {
-            return PathFinder.BlocksDiagonalMovement(cell.x, cell.z, pathData.map);
+            return PathFinder.BlocksDiagonalMovement(cell.x, cell.z, pathfindData.map);
         }
     }
 }

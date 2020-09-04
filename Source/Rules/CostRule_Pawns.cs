@@ -6,15 +6,15 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell if it's occupied by a pawn
     /// </summary>
-    public class TrailblazerRule_CostPawns : TrailblazerRule
+    public class CostRule_Pawns : CostRule
     {
-        protected const int Cost_PawnCollision = 175;
+        public const int Cost_PawnCollision = 175;
 
-        protected readonly Pawn pawn;
+        private readonly Pawn pawn;
 
-        public TrailblazerRule_CostPawns(PathfindData pathData) : base(pathData)
+        public CostRule_Pawns(PathfindData pathfindData) : base(pathfindData)
         {
-            pawn = pathData.traverseParms.pawn;
+            pawn = pathfindData.traverseParms.pawn;
         }
 
         public override bool Applies()
@@ -22,7 +22,7 @@ namespace Trailblazer.Rules
             return pawn != null && PawnUtility.ShouldCollideWithPawns(pawn);
         }
 
-        public override int? GetConstantCost(MoveData moveData)
+        public override int GetCost(MoveData moveData)
         {
             if (PawnUtility.AnyPawnBlockingPathAt(moveData.cell, pawn, false, false, true))
             {
