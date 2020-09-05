@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Verse;
 
 namespace Trailblazer
@@ -21,7 +23,7 @@ namespace Trailblazer
 
     public static class DirectionUtils
     {
-        public static Direction[] AllDirections =
+        private static readonly Direction[] allDirections =
         {
             Direction.N,
             Direction.NE,
@@ -32,22 +34,32 @@ namespace Trailblazer
             Direction.W,
             Direction.NW
         };
+        public static IEnumerable<Direction> AllDirections => allDirections;
 
-        public static Direction[] CardinalDirections =
+        private static readonly Direction[] cardinalDirections =
         {
             Direction.N,
             Direction.E,
             Direction.S,
             Direction.W
         };
+        public static IEnumerable<Direction> CardinalDirections => cardinalDirections;
 
-        public static Direction[] DiagonalDirections =
+        private static readonly Direction[] diagonalDirections =
         {
             Direction.N,
             Direction.E,
             Direction.S,
             Direction.W
         };
+        public static IEnumerable<Direction> DiagonalDirection => diagonalDirections;
+
+        public static IEnumerable<Direction> AllBut(Direction direction)
+        {
+            return from d in AllDirections
+                   where d != direction
+                   select d;
+        }
 
         /// <summary>
         /// Checks whether a direction is cardinal.

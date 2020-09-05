@@ -21,6 +21,7 @@ namespace Trailblazer
         protected class CellRefNode : FastPriorityQueueNode
         {
             public readonly CellRef cell;
+            public Direction enterDirection;
 
             public CellRefNode(CellRef cell)
             {
@@ -96,13 +97,35 @@ namespace Trailblazer
                 heuristicCost = h,
                 parent = null
             };
-            openSet.Enqueue(GetNode(startCell), 0);
+            foreach (Direction direction in DirectionUtils.AllDirections)
+            {
+                CellRef neighbor = direction.From(startCell);
+                if (neighbor.InBounds())
+                {
+                    MoveData moveData = new MoveData(neighbor, direction);
+                    if (!ProfilingMoveIsValid(moveData))
+                    {
+                        continue;
+                    }
+
+                    int moveCost = ProfilingCalcMoveCost(moveData);
+                    int heuristic = ProfilingHeuristic(neighbor);
+
+                    closedSet[neighbor] = new CellNode
+                    {
+                        knownCost = moveCost,
+                        heuristicCost = heuristic,
+                        parent = startCell
+                    };
+                    ProfilingEnqueue(openSet, GetNode(direction.From(startCell), direction), moveCost + heuristic);
+                }
+            }
 
             int closedNodes = 0;
             while (openSet.Count > 0)
             {
                 //TODO
-                CellRefNode current = Dequeue(openSet);
+                CellRefNode current = ProfilingDequeue(openSet);
                 //CellRef current = openSet.Dequeue();
                 debugReplay.DrawCell(current);
                 debugReplay.NextFrame();
@@ -131,7 +154,7 @@ namespace Trailblazer
                     return PawnPath.NotFound;
                 }
 
-                foreach (Direction direction in DirectionUtils.AllDirections)
+                foreach (Direction direction in DirectionUtils.AllBut(current.enterDirection))
                 {
                     CellRef neighbor = direction.From(current);
                     if (neighbor.InBounds())
@@ -140,30 +163,20 @@ namespace Trailblazer
                         //debugReplay.NextFrame();
 
                         MoveData moveData = new MoveData(neighbor, direction);
-                        ProfilerStart("Calc Valid Move");
-                        bool moveIsValid = MoveIsValid(moveData);
-                        ProfilerEnd("Calc Valid Move");
-                        if (!moveIsValid)
+                        if (!ProfilingMoveIsValid(moveData))
                         {
                             ProfilerCount("Invalid moves");
                             continue;
                         }
 
-                        ProfilerStart("Calc Move Cost");
-                        int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
-                        ProfilerEnd("Calc Move Cost");
-
+                        int neighborNewCost = closedSet[current].knownCost + ProfilingCalcMoveCost(moveData);
                         if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
                         {
                             if (!closedSet.ContainsKey(neighbor))
                             {
-                                ProfilerStart("Heuristic");
-                                int heuristic = Heuristic(neighbor);
-                                ProfilerEnd("Heuristic");
-
                                 closedSet[neighbor] = new CellNode
                                 {
-                                    heuristicCost = heuristic
+                                    heuristicCost = ProfilingHeuristic(neighbor)
                                 };
                                 ProfilerCount("New Open Nodes");
                             }
@@ -177,7 +190,7 @@ namespace Trailblazer
                             ProfilerCount("Opened Nodes");
 
                             //TODO
-                            Enqueue(openSet, GetNode(neighbor), closedSet[neighbor].TotalCost);
+                            ProfilingEnqueue(openSet, GetNode(neighbor, direction), closedSet[neighbor].TotalCost);
                             //if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].TotalCost))
                             //{
                             //    openSet.UpdatePriority(neighbor, closedSet[neighbor].TotalCost);
@@ -218,12 +231,13 @@ namespace Trailblazer
         /// </summary>
         /// <returns>The node.</returns>
         /// <param name="cellRef">Cell reference.</param>
-        private CellRefNode GetNode(CellRef cellRef)
+        private CellRefNode GetNode(CellRef cellRef, Direction direction)
         {
             if (!cellRefNodeCache.ContainsKey(cellRef))
             {
                 cellRefNodeCache[cellRef] = new CellRefNode(cellRef);
             }
+            cellRefNodeCache[cellRef].enterDirection = direction;
             return cellRefNodeCache[cellRef];
         }
 
@@ -240,7 +254,58 @@ namespace Trailblazer
             return emptyPawnPath;
         }
 
-        // === Debug methods ===
+        // === Profiling methods ===
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool ProfilingMoveIsValid(MoveData move)
+        {
+            ProfilerStart("MoveIsValid");
+            bool valid = MoveIsValid(move);
+            ProfilerEnd("MoveIsValid");
+            return valid;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int ProfilingCalcMoveCost(MoveData move)
+        {
+            ProfilerStart("CalcMoveCost");
+            int cost = CalcMoveCost(move);
+            ProfilerEnd("CalcMoveCost");
+            return cost;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int ProfilingHeuristic(CellRef cell)
+        {
+            ProfilerStart("Heuristic");
+            int heuristic = Heuristic(cell);
+            ProfilerEnd("Heuristic");
+            return heuristic;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private CellRefNode ProfilingDequeue(Priority_Queue.FastPriorityQueue<CellRefNode> queue)
+        {
+            ProfilerStart("Dequeue");
+            CellRefNode node = queue.Dequeue();
+            ProfilerEnd("Dequeue");
+            return node;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ProfilingEnqueue(Priority_Queue.FastPriorityQueue<CellRefNode> queue, CellRefNode node, int priority)
+        {
+            ProfilerStart("Enqueue");
+            if (queue.Contains(node))
+            {
+                queue.UpdatePriority(node, priority);
+            }
+            else
+            {
+                queue.Enqueue(node, priority);
+            }
+            ProfilerEnd("Enqueue");
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected void ProfilerStart(string key)
         {
@@ -282,29 +347,8 @@ namespace Trailblazer
 #endif
         }
 
-        // Used as hooks for Dubs Performance Analyzer because it can't see the Priority_Queue assembly
-        private CellRefNode Dequeue(Priority_Queue.FastPriorityQueue<CellRefNode> queue)
-        {
-            ProfilerStart("Dequeue");
-            CellRefNode node = queue.Dequeue();
-            ProfilerEnd("Dequeue");
-            return node;
-        }
 
-        private void Enqueue(Priority_Queue.FastPriorityQueue<CellRefNode> queue, CellRefNode node, int priority)
-        {
-            ProfilerStart("Enqueue");
-            if (queue.Contains(node))
-            {
-                queue.UpdatePriority(node, priority);
-            }
-            else
-            {
-                queue.Enqueue(node, priority);
-            }
-            ProfilerEnd("Enqueue");
-        }
-
+        // === Debug methods ===
         protected void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
         {
             pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, text, duration);
