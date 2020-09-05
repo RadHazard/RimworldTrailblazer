@@ -68,34 +68,34 @@ namespace Trailblazer
         /// <param name="targetCell">Target cell.</param>
         private void ReverseResumableAStar(CellRef targetCell)
         {
-            performanceTracker.StartInvocation("RRA");
-            performanceTracker.StartInvocation("RRA Reprioritize");
+            ProfilerStart("RRA");
+            ProfilerStart("RRA Reprioritize");
             // Rebuild the open set based on the new target
             CellRefNode[] cachedNodes = rraOpenSet.ToArray(); // Cache the nodes because we'll be messing with the queue
             foreach (CellRefNode cell in cachedNodes)
             {
                 rraOpenSet.UpdatePriority(cell, rraClosedSet[cell] + RRAHeuristic(cell, targetCell));
             }
-            performanceTracker.EndInvocation("RRA Reprioritize");
+            ProfilerEnd("RRA Reprioritize");
 
             int closedNodes = 0;
             while (rraOpenSet.Count > 0)
             {
                 CellRef current = rraOpenSet.Dequeue();
                 debugReplay.DrawCell(current);
-                performanceTracker.Count("RRA Closed");
+                ProfilerCount("RRA Closed");
 
                 // Check if we've reached our goal
                 if (current.Equals(targetCell))
                 {
-                    performanceTracker.EndInvocation("RRA");
+                    ProfilerEnd("RRA");
                     return;
                 }
 
                 if (closedNodes > SearchLimit)
                 {
                     Log.Error("[Trailblazer] RRA* Heuristic closed too many cells, aborting");
-                    performanceTracker.EndInvocation("RRA");
+                    ProfilerEnd("RRA");
                     return;
                 }
 
@@ -104,37 +104,37 @@ namespace Trailblazer
                     IntVec3 neighborCell = direction.From(current);
                     CellRef neighbor = map.GetCellRef(neighborCell);
 
-                    performanceTracker.StartInvocation("RRA Bounds Check");
+                    ProfilerStart("RRA Bounds Check");
                     bool inBounds = neighborCell.InBounds(map);
-                    performanceTracker.EndInvocation("RRA Bounds Check");
+                    ProfilerEnd("RRA Bounds Check");
                     if (inBounds)
                     {
                         MoveData moveData = new MoveData(neighbor, direction);
 
-                        performanceTracker.StartInvocation("RRA Move Check");
+                        ProfilerStart("RRA Move Check");
                         bool passable = rraPassRules.All(r => r.IsPassable(moveData));
-                        performanceTracker.EndInvocation("RRA Move Check");
+                        ProfilerEnd("RRA Move Check");
                         if (!passable)
                             continue;
 
-                        performanceTracker.StartInvocation("RRA Move Cost");
+                        ProfilerStart("RRA Move Cost");
                         int newCost = rraClosedSet[current] + costRules.Sum(r => r.GetCost(moveData));
-                        performanceTracker.EndInvocation("RRA Move Cost");
+                        ProfilerEnd("RRA Move Cost");
                         if (!rraClosedSet.ContainsKey(neighbor) || newCost < rraClosedSet[neighbor])
                         {
                             if (rraClosedSet.ContainsKey(neighbor))
                             {
-                                performanceTracker.Count("RRA Reopened");
+                                ProfilerCount("RRA Reopened");
                             }
                             else
                             {
-                                performanceTracker.Count("RRA New Open");
+                                ProfilerCount("RRA New Open");
                             }
 
                             rraClosedSet[neighbor] = newCost;
                             int estimatedCost = newCost + RRAHeuristic(neighbor, targetCell);
 
-                            performanceTracker.StartInvocation("RRA Enqueue");
+                            ProfilerStart("RRA Enqueue");
                             CellRefNode neighborNode = GetNode(neighbor);
                             if (rraOpenSet.Contains(neighborNode))
                             {
@@ -144,11 +144,11 @@ namespace Trailblazer
                             {
                                 rraOpenSet.Enqueue(neighborNode, estimatedCost);
                             }
-                            performanceTracker.EndInvocation("RRA Enqueue");
+                            ProfilerEnd("RRA Enqueue");
                         }
                         else
                         {
-                            performanceTracker.Count("RRA Rescanned");
+                            ProfilerEnd("RRA Rescanned");
                         }
                     }
                 }
@@ -157,14 +157,14 @@ namespace Trailblazer
             }
 
             Log.Error("[Trailblazer] RRA heuristic failed to reach target cell " + targetCell);
-            performanceTracker.EndInvocation("RRA");
+            ProfilerEnd("RRA");
         }
 
         private int RRAHeuristic(CellRef start, CellRef target)
         {
-            performanceTracker.StartInvocation("RRA Heuristic");
+            ProfilerStart("RRA Heuristic");
             int dist = DistanceBetween(start, target);
-            performanceTracker.EndInvocation("RRA Heuristic");
+            ProfilerEnd("RRA Heuristic");
             return dist;
         }
 

@@ -75,20 +75,20 @@ namespace Trailblazer.Debug
             }
 
             StringBuilder sb = new StringBuilder("Performance tracker results:").AppendLine();
-            sb.AppendLine(string.Format("    Key              Count      Total Time     Instance Time"));
-                                      //"  key456789ABCDEF  12345678  123456789ABC ms  123456789ABC ms"
-                                      //"  key456789ABCDEF  12345678         n/a              n/a"
+            sb.AppendLine(string.Format("    Key               Count      Total Time     Instance Time"));
+                                      //"  key456789ABCDEF   12345678  123456789ABC ms  123456789ABC ms"
+                                      //"  key456789ABCDEF   12345678         n/a              n/a"
             foreach (string key in counts.Keys.OrderBy(k => k))
             {
                 if (stopwatches.ContainsKey(key))
                 {
                     Stopwatch sw = stopwatches[key];
                     float instanceTime = ((float)sw.ElapsedTicks / counts[key]) * 1000f / Stopwatch.Frequency;
-                    sb.AppendLine(string.Format("  {0,-15}  {1,8}  {2,12} ms  {3,12:f5} ms", key, counts[key], sw.ElapsedMilliseconds, instanceTime));
+                    sb.AppendLine(string.Format("  {0,-16}  {1,8}  {2,12} ms  {3,12:f5} ms", key, counts[key], sw.ElapsedMilliseconds, instanceTime));
                 }
                 else
                 {
-                    sb.AppendLine(string.Format("  {0,-15}  {1,8}         n/a              n/a", key, counts[key]));
+                    sb.AppendLine(string.Format("  {0,-16}  {1,8}         n/a              n/a", key, counts[key]));
                 }
             }
 
