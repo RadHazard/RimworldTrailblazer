@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Trailblazer.Rules;
+using Verse;
 
 namespace Trailblazer
 {
@@ -14,7 +15,7 @@ namespace Trailblazer
     public class PathfinderGrid
     {
         private readonly Dictionary<CellRef, int> cellCostCache = new Dictionary<CellRef, int>();
-        private readonly Dictionary<CellRef, bool> cellPassabilityCach = new Dictionary<CellRef, bool>();
+        private readonly Dictionary<CellRef, bool> cellPassabilityCache = new Dictionary<CellRef, bool>();
 
         private readonly List<CellCostRule> cellCostRules;
         private readonly List<CostRule> costRules;
@@ -44,13 +45,25 @@ namespace Trailblazer
             return Math.Max(0, cost);
         }
 
+        public IEnumerable<CellRef> GetNeighbors(CellRef cell)
+        {
+            foreach (Direction direction in DirectionUtils.AllDirections)
+            {
+                CellRef neighborCell = direction.From(cell);
+                if (neighborCell.InBounds() && MoveIsValid(new MoveData(neighborCell, direction)))
+                {
+                    yield return neighborCell;
+                }
+            }
+        }
+
         private bool CellIsPassable(CellRef cell)
         {
-            if (!cellPassabilityCach.ContainsKey(cell))
+            if (!cellPassabilityCache.ContainsKey(cell))
             {
-                cellPassabilityCach[cell] = cellPassabilityRules.All(r => r.IsPassable(cell));
+                cellPassabilityCache[cell] = cellPassabilityRules.All(r => r.IsPassable(cell));
             }
-            return cellPassabilityCach[cell];
+            return cellPassabilityCache[cell];
         }
 
         private int CellCost(CellRef cell)

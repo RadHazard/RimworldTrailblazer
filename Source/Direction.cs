@@ -75,6 +75,38 @@ namespace Trailblazer
         /// <returns>The ending cell.</returns>
         /// <param name="direction">The direction to move.</param>
         /// <param name="start">The starting cell.</param>
+        public static CellRef From(this Direction direction, CellRef start)
+        {
+            switch (direction)
+            {
+                case Direction.N:
+                    return start.Relative(0, 1);
+                case Direction.NE:
+                    return start.Relative(1, 1);
+                case Direction.E:
+                    return start.Relative(1, 0);
+                case Direction.SE:
+                    return start.Relative(1, -1);
+                case Direction.S:
+                    return start.Relative(0, -1);
+                case Direction.SW:
+                    return start.Relative(-1, -1);
+                case Direction.W:
+                    return start.Relative(-1, 0);
+                case Direction.NW:
+                    return start.Relative(-1, 1);
+                default:
+                    // This can't actually happen
+                    throw new Exception("Moved in an invalid direction");
+            }
+        }
+
+        /// <summary>
+        /// Returns the cell you would reach by moving in the given direction from the start cell
+        /// </summary>
+        /// <returns>The ending cell.</returns>
+        /// <param name="direction">The direction to move.</param>
+        /// <param name="start">The starting cell.</param>
         public static IntVec3 From(this Direction direction, IntVec3 start)
         {
             switch (direction)

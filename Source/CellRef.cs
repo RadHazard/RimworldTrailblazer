@@ -8,7 +8,8 @@ namespace Trailblazer
     /// </summary>
     public class CellRef
     {
-        private readonly CellIndices cellIndices;
+        private readonly int mapSizeX;
+        private readonly int mapSizeY;
         private int _index = -1;
         private IntVec3 _cell = IntVec3.Invalid;
 
@@ -18,7 +19,14 @@ namespace Trailblazer
             {
                 if (_index == -1)
                 {
-                    _index = cellIndices.CellToIndex(_cell);
+                    if (_cell.x < mapSizeX && _cell.y < mapSizeY)
+                    {
+                        _index = CellIndicesUtility.CellToIndex(_cell, mapSizeX);
+                    }
+                    else
+                    {
+                        _index = -2;
+                    }
                 }
                 return _index;
             }
@@ -30,22 +38,39 @@ namespace Trailblazer
             {
                 if (!_cell.IsValid)
                 {
-                    _cell = cellIndices.IndexToCell(_index);
+                    _cell = CellIndicesUtility.IndexToCell(_index, mapSizeX);
                 }
                 return _cell;
             }
         }
 
-        public CellRef(CellIndices cellIndices, int index)
+        public CellRef(int mapSizeX, int mapSizeY, int index)
         {
-            this.cellIndices = cellIndices;
+            this.mapSizeX = mapSizeX;
+            this.mapSizeY = mapSizeY;
             _index = index;
         }
 
-        public CellRef(CellIndices cellIndices, IntVec3 cell)
+        public CellRef(int mapSizeX, int mapSizeY, IntVec3 cell)
         {
-            this.cellIndices = cellIndices;
+            this.mapSizeX = mapSizeX;
+            this.mapSizeY = mapSizeY;
             _cell = cell;
+        }
+
+        public CellRef Relative(IntVec3 delta)
+        {
+            return new CellRef(mapSizeX, mapSizeY, _cell + delta);
+        }
+
+        public CellRef Relative(int dx, int dz)
+        {
+            return Relative(new IntVec3(dx, 0, dz));
+        }
+
+        public bool InBounds()
+        {
+            return Index > 0;
         }
 
         public static implicit operator int(CellRef r) => r.Index;
@@ -76,14 +101,15 @@ namespace Trailblazer
 
         public override int GetHashCode()
         {
-            return Gen.HashCombineInt(cellIndices.NumGridCells, Gen.HashCombineInt(0, Index));
+            return Gen.HashCombineInt(mapSizeX, Gen.HashCombineInt(Index, mapSizeY));
         }
 
         public override bool Equals(object obj)
         {
             var @ref = obj as CellRef;
             return @ref != null &&
-                   EqualityComparer<CellIndices>.Default.Equals(cellIndices, @ref.cellIndices) &&
+                   mapSizeX == @ref.mapSizeX &&
+                   mapSizeY == @ref.mapSizeY &&
                    Index == @ref.Index;
         }
     }
@@ -92,32 +118,17 @@ namespace Trailblazer
     {
         public static CellRef GetCellRef(this Map map, int index)
         {
-            return new CellRef(map.cellIndices, index);
+            return new CellRef(map.Size.x, map.Size.y, index);
         }
 
         public static CellRef GetCellRef(this Map map, IntVec3 cell)
         {
-            return new CellRef(map.cellIndices, cell);
+            return new CellRef(map.Size.x, map.Size.y, cell);
         }
 
         public static CellRef GetCellRef(this Map map, int x, int z)
         {
-            return new CellRef(map.cellIndices, new IntVec3(x, 0, z));
-        }
-
-        public static CellRef GetCellRef(this CellIndices cellIndices, int index)
-        {
-            return new CellRef(cellIndices, index);
-        }
-
-        public static CellRef GetCellRef(this CellIndices cellIndices, IntVec3 cell)
-        {
-            return new CellRef(cellIndices, cell);
-        }
-
-        public static CellRef GetCellRef(this CellIndices cellIndices, int x, int z)
-        {
-            return new CellRef(cellIndices, new IntVec3(x, 0, z));
+            return new CellRef(map.Size.x, map.Size.y, new IntVec3(x, 0, z));
         }
     }
 }
