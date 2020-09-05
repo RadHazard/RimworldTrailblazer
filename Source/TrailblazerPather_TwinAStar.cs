@@ -19,8 +19,7 @@ namespace Trailblazer
 
         private readonly Dictionary<CellRef, CellRefNode> cellRefNodeCache;
 
-        private readonly List<PassabilityRule> rraPassRules;
-        private readonly List<CostRule> rraCostRules;
+        private readonly PathfinderGrid rraPathfinderGrid;
 
         public TrailblazerPather_TwinAStar(PathfindData pathfindData) : base(pathfindData)
         {
@@ -29,18 +28,21 @@ namespace Trailblazer
 
             cellRefNodeCache = new Dictionary<CellRef, CellRefNode>();
 
-            rraPassRules = new PassabilityRule[]
-            {
+            var cellPassRules = ThatApply<CellPassabilityRule>(
                 new CellPassabilityRule_PathGrid(pathfindData),
                 new CellPassabilityRule_DoorByPawn(pathfindData),
                 new CellPassabilityRule_NoPassDoors(pathfindData)
-            }.Where(r => r.Applies()).ToList();
-            rraCostRules = new CostRule[]
-            {
+            );
+
+            var passRules = Enumerable.Empty<PassabilityRule>();
+
+            var cellCostRules = ThatApply<CellCostRule>(
                 new CellCostRule_PathGrid(pathfindData),
-                new CellCostRule_Walls(pathfindData),
-                new CostRule_MoveTicks(pathfindData)
-            }.Where(r => r.Applies()).ToList();
+                new CellCostRule_Walls(pathfindData)
+            );
+
+            var costRules = ThatApply<CostRule>(new CostRule_MoveTicks(pathfindData));
+            rraPathfinderGrid = new PathfinderGrid(cellCostRules, costRules, cellPassRules, passRules);
 
             // Initialize the RRA* algorithm
             foreach (IntVec3 cell in pathfindData.DestRect)
@@ -112,13 +114,13 @@ namespace Trailblazer
                         MoveData moveData = new MoveData(neighbor, direction);
 
                         ProfilerStart("RRA Move Check");
-                        bool passable = rraPassRules.All(r => r.IsPassable(moveData));
+                        bool passable = rraPathfinderGrid.MoveIsValid(moveData);
                         ProfilerEnd("RRA Move Check");
                         if (!passable)
                             continue;
 
                         ProfilerStart("RRA Move Cost");
-                        int newCost = rraClosedSet[current] + costRules.Sum(r => r.GetCost(moveData));
+                        int newCost = rraClosedSet[current] + rraPathfinderGrid.MoveCost(moveData);
                         ProfilerEnd("RRA Move Cost");
                         if (!rraClosedSet.ContainsKey(neighbor) || newCost < rraClosedSet[neighbor])
                         {

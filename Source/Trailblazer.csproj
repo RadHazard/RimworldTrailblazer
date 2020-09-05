@@ -92,6 +92,7 @@
     <Compile Include="PathfinderGrid.cs" />
     <Compile Include="Rules\CellCostRule.cs" />
     <Compile Include="Rules\CellPassabilityRule.cs" />
+    <Compile Include="Rules\Rule.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

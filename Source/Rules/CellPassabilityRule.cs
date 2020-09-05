@@ -9,7 +9,7 @@
     /// never use a given path even if they have no other options.  Be sure to update the reachability checks if it is
     /// possible for portions of the map to be cut off by your passability rule.
     /// </summary>
-    public abstract class CellPassabilityRule : PassabilityRule
+    public abstract class CellPassabilityRule : Rule
     {
         /// <summary>
         /// Trailblazer constructs a new version of all rules for each given pathfinding request, then queries that rule
@@ -18,16 +18,6 @@
         /// </summary>
         /// <param name="pathfindData">Path data.</param>
         protected CellPassabilityRule(PathfindData pathfindData) : base(pathfindData) { }
-
-        /// <summary>
-        /// Checks if the given move would be valid or not
-        /// </summary>
-        /// <returns><c>true</c> if the move is valid, <c>false</c> otherwise.</returns>
-        /// <param name="moveData">Move data to check.</param>
-        public override bool IsPassable(MoveData moveData)
-        {
-            return IsPassable(moveData.cell);
-        }
 
         /// <summary>
         /// Checks if the given cell is passable or not
