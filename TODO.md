@@ -27,3 +27,4 @@
   - Raw JPS (probably?) won't work with all the complex rules, but might contain useful tricks
 - PathfindGrid
   - If we start caching pathfinding data, it may be worth it to create a PathfindGrid class to act as an intermediary between pathfinders and rules
+  - DONE -- however, it seems to have minimal speedups
