@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Priority_Queue;
+using Trailblazer.Debug;
 using Trailblazer.Rules;
 using Verse;
 using Verse.AI;
@@ -55,6 +56,7 @@ namespace Trailblazer
         private static ushort debugMat = 0;
         protected readonly TrailblazerDebugVisualizer debugVisualizer;
         protected readonly TrailblazerDebugVisualizer.InstantReplay debugReplay;
+        protected readonly PerformanceTracker performanceTracker;
 
         public TrailblazerPather_AStar(PathfindData pathfindData) : base(pathfindData)
         {
@@ -73,14 +75,19 @@ namespace Trailblazer
             debugMat++;
             debugVisualizer = pathfindData.map.GetComponent<TrailblazerDebugVisualizer>();
             debugReplay = debugVisualizer.CreateNewReplay();
+            performanceTracker = new PerformanceTracker();
         }
 
         public override PawnPath FindPath()
         {
+            performanceTracker.StartInvocation("Heuristic");
+            int h = Heuristic(startCell);
+            performanceTracker.StopInvocation("Heuristic");
+
             closedSet[startCell] = new CellNode
             {
                 knownCost = 0,
-                heuristicCost = Heuristic(startCell),
+                heuristicCost = h,
                 parent = null
             };
             openSet.Enqueue(GetNode(startCell), 0);
@@ -94,10 +101,13 @@ namespace Trailblazer
                 debugReplay.DrawCell(current);
                 debugReplay.NextFrame();
 
+                performanceTracker.Count("Closed Nodes");
+
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
                 {
                     //TODO
+                    DebugFinalStats();
                     DebugDrawFinalPath();
                     //debugVisualizer.RegisterReplay(debugReplay);
                     return FinalizedPath(current);
@@ -109,6 +119,7 @@ namespace Trailblazer
                     Log.Warning("[Trailblazer] " + pathfindData.traverseParms.pawn + " pathing from " + startCell +
                         " to " + destCell + " hit search limit of " + SearchLimit + " cells.", false);
                     //TODO
+                    DebugFinalStats();
                     DebugDrawFinalPath();
                     //debugVisualizer.RegisterReplay(debugReplay);
                     return PawnPath.NotFound;
@@ -123,22 +134,41 @@ namespace Trailblazer
                         //debugReplay.DrawLine(current, neighbor);
                         //debugReplay.NextFrame();
 
+                        performanceTracker.StartInvocation("Calc Valid Move");
                         MoveData moveData = new MoveData(neighbor, direction);
                         if (!MoveIsValid(moveData))
+                        {
+                            performanceTracker.Count("Invalid moves");
                             continue;
+                        }
+                        performanceTracker.StopInvocation("Calc Valid Move");
 
+                        performanceTracker.StartInvocation("Calc Move Cost");
                         int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
+                        performanceTracker.StopInvocation("Calc Move Cost");
+
                         if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
                         {
                             if (!closedSet.ContainsKey(neighbor))
                             {
+                                performanceTracker.StartInvocation("Heuristic");
+                                int heuristic = Heuristic(neighbor);
+                                performanceTracker.StopInvocation("Heuristic");
+
                                 closedSet[neighbor] = new CellNode
                                 {
-                                    heuristicCost = Heuristic(neighbor)
+                                    heuristicCost = heuristic
                                 };
+                                performanceTracker.Count("New Open Nodes");
+                            }
+                            else
+                            {
+                                performanceTracker.Count("Reopened Nodes");
                             }
                             closedSet[neighbor].knownCost = neighborNewCost;
                             closedSet[neighbor].parent = current;
+
+                            performanceTracker.Count("Opened Nodes");
 
                             //TODO
                             Enqueue(openSet, GetNode(neighbor), closedSet[neighbor].TotalCost);
@@ -146,6 +176,11 @@ namespace Trailblazer
                             //{
                             //    openSet.UpdatePriority(neighbor, closedSet[neighbor].TotalCost);
                             //}
+                            performanceTracker.Max("Max Open Set", openSet.Count);
+                        }
+                        else
+                        {
+                            performanceTracker.Count("Rescanned Nodes");
                         }
                     }
                 }
@@ -158,6 +193,7 @@ namespace Trailblazer
             Log.Warning("[Trailblazer] " + pawn + " pathing from " + startCell + " to " + destCell +
                 " ran out of cells to process.\n" + "Job:" + currentJob + "\nFaction: " + faction, false);
             //TODO
+            DebugFinalStats();
             DebugDrawFinalPath();
             //debugVisualizer.RegisterReplay(debugReplay);
             return PawnPath.NotFound;
@@ -220,6 +256,11 @@ namespace Trailblazer
         protected void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
         {
             pathfindData.map.debugDrawer.FlashCell(cell, (debugMat % 100 / 100f) + offset, text, duration);
+        }
+
+        private void DebugFinalStats()
+        {
+            Log.Message(performanceTracker.GetSummary());
         }
 
         private void DebugDrawFinalPath()

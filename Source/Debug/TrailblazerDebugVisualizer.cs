@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Verse;
 
-namespace Trailblazer
+namespace Trailblazer.Debug
 {
     public class TrailblazerDebugVisualizer : MapComponent
     {

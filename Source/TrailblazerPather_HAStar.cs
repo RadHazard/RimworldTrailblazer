@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 using Priority_Queue;
-using Trailblazer.Rules;
 using Verse;
-using Verse.AI;
 
 namespace Trailblazer
 {
