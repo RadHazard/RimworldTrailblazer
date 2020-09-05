@@ -70,6 +70,36 @@ namespace Trailblazer
         }
 
         /// <summary>
+        /// Returns the direction 180 degrees from the current direction
+        /// </summary>
+        /// <returns>The opposite.</returns>
+        /// <param name="direction">Direction.</param>
+        public static Direction Opposite(this Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.N:
+                    return Direction.S;
+                case Direction.NE:
+                    return Direction.SW;
+                case Direction.E:
+                    return Direction.W;
+                case Direction.SE:
+                    return Direction.NW;
+                case Direction.S:
+                    return Direction.N;
+                case Direction.SW:
+                    return Direction.NE;
+                case Direction.W:
+                    return Direction.E;
+                case Direction.NW:
+                    return Direction.SE;
+                default:
+                    throw new Exception("Tried to get opposite of an invalid direction");
+            }
+        }
+
+        /// <summary>
         /// Returns the cell you would reach by moving in the given direction from the start cell
         /// </summary>
         /// <returns>The ending cell.</returns>
@@ -96,7 +126,6 @@ namespace Trailblazer
                 case Direction.NW:
                     return start.Relative(-1, 1);
                 default:
-                    // This can't actually happen
                     throw new Exception("Moved in an invalid direction");
             }
         }
@@ -128,7 +157,6 @@ namespace Trailblazer
                 case Direction.NW:
                     return start + new IntVec3(-1, 0, 1);
                 default:
-                    // This can't actually happen
                     throw new Exception("Moved in an invalid direction");
             }
         }

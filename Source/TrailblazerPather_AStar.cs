@@ -133,10 +133,9 @@ namespace Trailblazer
 
                 foreach (Direction direction in DirectionUtils.AllDirections)
                 {
-                    IntVec3 neighborCell = direction.From(current.cell);
-                    if (neighborCell.InBounds(map))
+                    CellRef neighbor = direction.From(current);
+                    if (neighbor.InBounds())
                     {
-                        CellRef neighbor = map.GetCellRef(neighborCell);
                         //debugReplay.DrawLine(current, neighbor);
                         //debugReplay.NextFrame();
 

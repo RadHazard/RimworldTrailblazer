@@ -45,18 +45,6 @@ namespace Trailblazer
             return Math.Max(0, cost);
         }
 
-        public IEnumerable<CellRef> GetNeighbors(CellRef cell)
-        {
-            foreach (Direction direction in DirectionUtils.AllDirections)
-            {
-                CellRef neighborCell = direction.From(cell);
-                if (neighborCell.InBounds() && MoveIsValid(new MoveData(neighborCell, direction)))
-                {
-                    yield return neighborCell;
-                }
-            }
-        }
-
         private bool CellIsPassable(CellRef cell)
         {
             if (!cellPassabilityCache.ContainsKey(cell))
