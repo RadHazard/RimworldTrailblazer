@@ -8,12 +8,12 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell for the blueprints sitting on it
     /// </summary>
-    public class CostRule_Blueprints : CostRule
+    public class CellCostRule_Blueprints : CellCostRule
     {
         private readonly BlueprintGrid blueprintGrid;
         private readonly Pawn pawn;
 
-        public CostRule_Blueprints(PathfindData pathfindData) : base(pathfindData)
+        public CellCostRule_Blueprints(PathfindData pathfindData) : base(pathfindData)
         {
             blueprintGrid = pathfindData.map.blueprintGrid;
             pawn = pathfindData.traverseParms.pawn;
@@ -24,9 +24,9 @@ namespace Trailblazer.Rules
             return pawn != null;
         }
 
-        public override int GetCost(MoveData moveData)
+        public override int GetCost(CellRef cell)
         {
-            List<Blueprint> list = blueprintGrid.InnerArray[moveData.cell.Index];
+            List<Blueprint> list = blueprintGrid.InnerArray[cell.Index];
             if (list != null)
             {
                 return (from blueprint in list

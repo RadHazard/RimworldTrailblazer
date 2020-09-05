@@ -6,7 +6,7 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost for moving through doors
     /// </summary>
-    public class CostRule_Doors : CostRule
+    public class CellCostRule_Doors : CellCostRule
     {
         public const int Cost_BlockedDoorBase = 50;
         public const float Cost_BlockedDoorPerHitPoint = 0.2f;
@@ -15,7 +15,7 @@ namespace Trailblazer.Rules
         private readonly Pawn pawn;
         private readonly TraverseMode mode;
 
-        public CostRule_Doors(PathfindData pathfindData) : base(pathfindData)
+        public CellCostRule_Doors(PathfindData pathfindData) : base(pathfindData)
         {
             edificeGrid = pathfindData.map.edificeGrid;
             pawn = pathfindData.traverseParms.pawn;
@@ -30,9 +30,9 @@ namespace Trailblazer.Rules
                 mode == TraverseMode.ByPawn;
         }
 
-        public override int GetCost(MoveData moveData)
+        public override int GetCost(CellRef cell)
         {
-            Building building = edificeGrid[moveData.cell.Index];
+            Building building = edificeGrid[cell.Index];
             if (building is Building_Door door)
             {
                 if (pawn != null && door.PawnCanOpen(pawn) && !door.IsForbiddenToPass(pawn) && !door.FreePassage)

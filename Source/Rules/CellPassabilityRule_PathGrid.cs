@@ -7,14 +7,14 @@ namespace Trailblazer.Rules
     /// Rule that decideds whether cells are impassible based on the path grid, and also whether or not the traverse
     /// mode allows destroying buildings
     /// </summary>
-    public class PassabilityRule_PathGrid : PassabilityRule
+    public class CellPassabilityRule_PathGrid : CellPassabilityRule
     {
         private readonly EdificeGrid edificeGrid;
         private readonly PathGrid pathGrid;
         private readonly Pawn pawn;
         private readonly bool canDestroy;
 
-        public PassabilityRule_PathGrid(PathfindData pathfindData) : base(pathfindData)
+        public CellPassabilityRule_PathGrid(PathfindData pathfindData) : base(pathfindData)
         {
             edificeGrid = pathfindData.map.edificeGrid;
             pathGrid = pathfindData.map.pathGrid;
@@ -24,11 +24,11 @@ namespace Trailblazer.Rules
                     mode == TraverseMode.PassAllDestroyableThingsNotWater;
         }
 
-        public override bool IsPassable(MoveData moveData)
+        public override bool IsPassable(CellRef cell)
         {
-            if (!pathGrid.WalkableFast(moveData.cell.Index))
+            if (!pathGrid.WalkableFast(cell.Index))
             {
-                Building building = edificeGrid[moveData.cell.Index];
+                Building building = edificeGrid[cell.Index];
                 return canDestroy && building != null && PathFinder.IsDestroyable(building);
             }
             return true;

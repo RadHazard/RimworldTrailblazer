@@ -1,12 +1,12 @@
 ﻿namespace Trailblazer.Rules
 {
     /// <summary>
-    /// TODO
     /// Passibilty rule for the Trailblazer pathfinding engine.  Passibility rules determine whether or not moving from
     /// one cell to another is even possible.
     /// 
     /// The pathfinder will never consider an impassible move, so passability checks should only be used when Pawns must
-    /// never use a given path even if they have no other options.
+    /// never use a given path even if they have no other options.  Be sure to update the reachability checks if it is
+    /// possible for portions of the map to be cut off by your passability rule.
     /// </summary>
     public abstract class PassabilityRule
     {

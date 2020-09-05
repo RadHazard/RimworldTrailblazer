@@ -5,9 +5,9 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Rule that declares water cells impassible when the TraverseMode requires it
     /// </summary>
-    public class PassabilityRule_Water : PassabilityRule
+    public class CellPassabilityRule_Water : CellPassabilityRule
     {
-        public PassabilityRule_Water(PathfindData pathfindData) : base(pathfindData) { }
+        public CellPassabilityRule_Water(PathfindData pathfindData) : base(pathfindData) { }
 
         public override bool Applies()
         {
@@ -16,9 +16,9 @@ namespace Trailblazer.Rules
                 mode == TraverseMode.PassAllDestroyableThingsNotWater;
         }
 
-        public override bool IsPassable(MoveData moveData)
+        public override bool IsPassable(CellRef cell)
         {
-            return !moveData.cell.Cell.GetTerrain(pathfindData.map).HasTag("Water");
+            return !cell.Cell.GetTerrain(pathfindData.map).HasTag("Water");
         }
     }
 }

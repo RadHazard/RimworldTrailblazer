@@ -47,11 +47,11 @@ namespace Trailblazer
         /// <param name="pathfindData">Pathfind data.</param>
         public static IEnumerable<PassabilityRule> PassabilityRules(PathfindData pathfindData)
         {
-            yield return new PassabilityRule_PathGrid(pathfindData);
+            yield return new CellPassabilityRule_PathGrid(pathfindData);
             yield return new PassabilityRule_Diagonals(pathfindData);
-            yield return new PassabilityRule_DoorByPawn(pathfindData);
-            yield return new PassabilityRule_NoPassDoors(pathfindData);
-            yield return new PassabilityRule_Water(pathfindData);
+            yield return new CellPassabilityRule_DoorByPawn(pathfindData);
+            yield return new CellPassabilityRule_NoPassDoors(pathfindData);
+            yield return new CellPassabilityRule_Water(pathfindData);
         }
 
         /// <summary>
@@ -74,14 +74,14 @@ namespace Trailblazer
         /// <param name="pathfindData">Pathfind data.</param>
         public static IEnumerable<CostRule> CostRules(PathfindData pathfindData)
         {
-            yield return new CostRule_AllowedArea(pathfindData);
-            yield return new CostRule_AvoidGrid(pathfindData);
-            yield return new CostRule_Blueprints(pathfindData);
-            yield return new CostRule_Buildings(pathfindData);
-            yield return new CostRule_Doors(pathfindData);
+            yield return new CellCostRule_AllowedArea(pathfindData);
+            yield return new CellCostRule_AvoidGrid(pathfindData);
+            yield return new CellCostRule_Blueprints(pathfindData);
+            yield return new CellCostRule_Buildings(pathfindData);
+            yield return new CellCostRule_Doors(pathfindData);
             yield return new CostRule_MoveTicks(pathfindData);
-            yield return new CostRule_Pawns(pathfindData);
-            yield return new CostRule_PathGrid(pathfindData);
+            yield return new CellCostRule_Pawns(pathfindData);
+            yield return new CellCostRule_PathGrid(pathfindData);
         }
 
         /// <summary>

@@ -6,11 +6,11 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Rule that declares doors impassible when the TraverseMode requires it
     /// </summary>
-    public class PassabilityRule_NoPassDoors : PassabilityRule
+    public class CellPassabilityRule_NoPassDoors : CellPassabilityRule
     {
         private readonly EdificeGrid edificeGrid;
 
-        public PassabilityRule_NoPassDoors(PathfindData pathfindData) : base(pathfindData)
+        public CellPassabilityRule_NoPassDoors(PathfindData pathfindData) : base(pathfindData)
         {
             edificeGrid = pathfindData.map.edificeGrid;
         }
@@ -21,9 +21,9 @@ namespace Trailblazer.Rules
             return mode == TraverseMode.NoPassClosedDoors || mode == TraverseMode.NoPassClosedDoorsOrWater;
         }
 
-        public override bool IsPassable(MoveData moveData)
+        public override bool IsPassable(CellRef cell)
         {
-            Building building = edificeGrid[moveData.cell.Index];
+            Building building = edificeGrid[cell.Index];
             if (building is Building_Door door)
             {
                 return door.FreePassage;

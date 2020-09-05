@@ -31,14 +31,14 @@ namespace Trailblazer
 
             rraPassRules = new PassabilityRule[]
             {
-                new PassabilityRule_PathGrid(pathfindData),
-                new PassabilityRule_DoorByPawn(pathfindData),
-                new PassabilityRule_NoPassDoors(pathfindData)
+                new CellPassabilityRule_PathGrid(pathfindData),
+                new CellPassabilityRule_DoorByPawn(pathfindData),
+                new CellPassabilityRule_NoPassDoors(pathfindData)
             }.Where(r => r.Applies()).ToList();
             rraCostRules = new CostRule[]
             {
-                new CostRule_PathGrid(pathfindData),
-                new CostRule_Walls(pathfindData),
+                new CellCostRule_PathGrid(pathfindData),
+                new CellCostRule_Walls(pathfindData),
                 new CostRule_MoveTicks(pathfindData)
             }.Where(r => r.Applies()).ToList();
 

@@ -6,26 +6,26 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell based on the pathGrid (which handles both terrain and objects sitting atop it)
     /// </summary>
-    public class CostRule_PathGrid : CostRule
+    public class CellCostRule_PathGrid : CellCostRule
     {
         private readonly PathGrid pathGrid;
         private readonly TerrainGrid terrainGrid;
         private readonly bool pawnDrafted;
 
-        public CostRule_PathGrid(PathfindData pathfindData) : base(pathfindData)
+        public CellCostRule_PathGrid(PathfindData pathfindData) : base(pathfindData)
         {
             pathGrid = pathfindData.map.pathGrid;
             terrainGrid = pathfindData.map.terrainGrid;
             pawnDrafted = pathfindData.traverseParms.pawn?.Drafted ?? false;
         }
 
-        public override int GetCost(MoveData moveData)
+        public override int GetCost(CellRef cell)
         {
-            if (pathGrid.WalkableFast(moveData.cell.Index))
+            if (pathGrid.WalkableFast(cell.Index))
             {
-                int cost = pathGrid.pathGrid[moveData.cell];
-                cost += pawnDrafted ? terrainGrid.topGrid[moveData.cell].extraDraftedPerceivedPathCost
-                        : terrainGrid.topGrid[moveData.cell].extraNonDraftedPerceivedPathCost;
+                int cost = pathGrid.pathGrid[cell];
+                cost += pawnDrafted ? terrainGrid.topGrid[cell].extraDraftedPerceivedPathCost
+                        : terrainGrid.topGrid[cell].extraNonDraftedPerceivedPathCost;
                 return cost;
             }
             return 0;

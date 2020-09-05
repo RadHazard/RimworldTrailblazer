@@ -6,13 +6,13 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Rule that decideds whether doors are impassible in the ByPawn traverse mode
     /// </summary>
-    public class PassabilityRule_DoorByPawn : PassabilityRule
+    public class CellPassabilityRule_DoorByPawn : CellPassabilityRule
     {
         private readonly EdificeGrid edificeGrid;
         private readonly Pawn pawn;
         private readonly bool canBash;
 
-        public PassabilityRule_DoorByPawn(PathfindData pathfindData) : base(pathfindData)
+        public CellPassabilityRule_DoorByPawn(PathfindData pathfindData) : base(pathfindData)
         {
             edificeGrid = pathfindData.map.edificeGrid;
             pawn = pathfindData.traverseParms.pawn;
@@ -25,9 +25,9 @@ namespace Trailblazer.Rules
             return mode == TraverseMode.ByPawn;
         }
 
-        public override bool IsPassable(MoveData moveData)
+        public override bool IsPassable(CellRef cell)
         {
-            Building building = edificeGrid[moveData.cell.Index];
+            Building building = edificeGrid[cell.Index];
             if (building is Building_Door door)
             {
                 if (door.IsForbiddenToPass(pawn))

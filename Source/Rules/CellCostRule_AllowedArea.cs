@@ -6,13 +6,13 @@ namespace Trailblazer.Rules
     /// <summary>
     /// Cost penalty to a cell if it's outside the allowed area of the pawn
     /// </summary>
-    public class CostRule_AllowedArea : CostRule
+    public class CellCostRule_AllowedArea : CellCostRule
     {
         public const int Cost_OutsideAllowedArea = 600;
 
         protected readonly Area allowedArea;
 
-        public CostRule_AllowedArea(PathfindData pathfindData) : base(pathfindData)
+        public CellCostRule_AllowedArea(PathfindData pathfindData) : base(pathfindData)
         {
             allowedArea = GetAllowedArea(pathfindData.traverseParms.pawn);
         }
@@ -22,9 +22,9 @@ namespace Trailblazer.Rules
             return allowedArea != null;
         }
 
-        public override int GetCost(MoveData moveData)
+        public override int GetCost(CellRef cell)
         {
-            if (!allowedArea[moveData.cell.Index])
+            if (!allowedArea[cell.Index])
             {
                 return Cost_OutsideAllowedArea;
             }

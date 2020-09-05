@@ -66,13 +66,13 @@
     <Compile Include="Direction.cs" />
     <Compile Include="Rules\CostRule.cs" />
     <Compile Include="Rules\CostRule_MoveTicks.cs" />
-    <Compile Include="Rules\PassabilityRule_Water.cs" />
+    <Compile Include="Rules\CellPassabilityRule_Water.cs" />
     <Compile Include="Rules\PassabilityRule_Diagonals.cs" />
-    <Compile Include="Rules\CostRule_AllowedArea.cs" />
-    <Compile Include="Rules\CostRule_AvoidGrid.cs" />
-    <Compile Include="Rules\CostRule_Blueprints.cs" />
-    <Compile Include="Rules\CostRule_Pawns.cs" />
-    <Compile Include="Rules\CostRule_PathGrid.cs" />
+    <Compile Include="Rules\CellCostRule_AllowedArea.cs" />
+    <Compile Include="Rules\CellCostRule_AvoidGrid.cs" />
+    <Compile Include="Rules\CellCostRule_Blueprints.cs" />
+    <Compile Include="Rules\CellCostRule_Pawns.cs" />
+    <Compile Include="Rules\CellCostRule_PathGrid.cs" />
     <Compile Include="TrailblazerPather_AStar.cs" />
     <Compile Include="CellRef.cs" />
     <Compile Include="PathfindData.cs" />
@@ -80,15 +80,18 @@
     <Compile Include="TrailblazerPather_HAStar.cs" />
     <Compile Include="TrailblazerPather_TwinAStar.cs" />
     <Compile Include="Rules\PassabilityRule.cs" />
-    <Compile Include="Rules\PassabilityRule_NoPassDoors.cs" />
-    <Compile Include="Rules\CostRule_Doors.cs" />
-    <Compile Include="Rules\PassabilityRule_DoorByPawn.cs" />
-    <Compile Include="Rules\PassabilityRule_PathGrid.cs" />
-    <Compile Include="Rules\CostRule_Buildings.cs" />
-    <Compile Include="Rules\CostRule_Walls.cs" />
+    <Compile Include="Rules\CellPassabilityRule_NoPassDoors.cs" />
+    <Compile Include="Rules\CellCostRule_Doors.cs" />
+    <Compile Include="Rules\CellPassabilityRule_DoorByPawn.cs" />
+    <Compile Include="Rules\CellPassabilityRule_PathGrid.cs" />
+    <Compile Include="Rules\CellCostRule_Buildings.cs" />
+    <Compile Include="Rules\CellCostRule_Walls.cs" />
     <Compile Include="TrailblazerSettings.cs" />
     <Compile Include="Debug\TrailblazerDebugVisualizer.cs" />
     <Compile Include="Debug\PerformanceTracker.cs" />
+    <Compile Include="PathfinderGrid.cs" />
+    <Compile Include="Rules\CellCostRule.cs" />
+    <Compile Include="Rules\CellPassabilityRule.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
