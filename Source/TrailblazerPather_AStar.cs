@@ -80,9 +80,10 @@ namespace Trailblazer
 
         public override PawnPath FindPath()
         {
+            performanceTracker.StartInvocation("Total Time");
             performanceTracker.StartInvocation("Heuristic");
             int h = Heuristic(startCell);
-            performanceTracker.StopInvocation("Heuristic");
+            performanceTracker.EndInvocation("Heuristic");
 
             closedSet[startCell] = new CellNode
             {
@@ -141,11 +142,11 @@ namespace Trailblazer
                             performanceTracker.Count("Invalid moves");
                             continue;
                         }
-                        performanceTracker.StopInvocation("Calc Valid Move");
+                        performanceTracker.EndInvocation("Calc Valid Move");
 
                         performanceTracker.StartInvocation("Calc Move Cost");
                         int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
-                        performanceTracker.StopInvocation("Calc Move Cost");
+                        performanceTracker.EndInvocation("Calc Move Cost");
 
                         if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
                         {
@@ -153,7 +154,7 @@ namespace Trailblazer
                             {
                                 performanceTracker.StartInvocation("Heuristic");
                                 int heuristic = Heuristic(neighbor);
-                                performanceTracker.StopInvocation("Heuristic");
+                                performanceTracker.EndInvocation("Heuristic");
 
                                 closedSet[neighbor] = new CellNode
                                 {
@@ -236,13 +237,17 @@ namespace Trailblazer
 
         // === Debug methods ===
         // Used as hooks for Dubs Performance Analyzer because it can't see the Priority_Queue assembly
-        protected static CellRefNode Dequeue(Priority_Queue.FastPriorityQueue<CellRefNode> queue)
+        private CellRefNode Dequeue(Priority_Queue.FastPriorityQueue<CellRefNode> queue)
         {
-            return queue.Dequeue();
+            performanceTracker.StartInvocation("Dequeue");
+            CellRefNode node = queue.Dequeue();
+            performanceTracker.EndInvocation("Dequeue");
+            return node;
         }
 
-        protected static void Enqueue(Priority_Queue.FastPriorityQueue<CellRefNode> queue, CellRefNode node, int priority)
+        private void Enqueue(Priority_Queue.FastPriorityQueue<CellRefNode> queue, CellRefNode node, int priority)
         {
+            performanceTracker.StartInvocation("Enqueue");
             if (queue.Contains(node))
             {
                 queue.UpdatePriority(node, priority);
@@ -251,6 +256,7 @@ namespace Trailblazer
             {
                 queue.Enqueue(node, priority);
             }
+            performanceTracker.EndInvocation("Enqueue");
         }
 
         protected void FlashCell(IntVec3 cell, string text, int duration, float offset = 0f)
@@ -260,6 +266,7 @@ namespace Trailblazer
 
         private void DebugFinalStats()
         {
+            performanceTracker.EndInvocation("Total Time");
             Log.Message(performanceTracker.GetSummary());
         }
 

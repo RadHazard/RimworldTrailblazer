@@ -25,3 +25,5 @@
   - Maybe calculate every edge cell instead of just the corners, since it's precomputed?
 - Jump Point Search inspiration
   - Raw JPS (probably?) won't work with all the complex rules, but might contain useful tricks
+- PathfindGrid
+  - If we start caching pathfinding data, it may be worth it to create a PathfindGrid class to act as an intermediary between pathfinders and rules

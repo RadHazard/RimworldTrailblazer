@@ -62,7 +62,7 @@ namespace Trailblazer.Debug
         /// Finishes tracking the current invocation of a time-based metric.
         /// </summary>
         /// <param name="key">Key.</param>
-        public void StopInvocation(string key)
+        public void EndInvocation(string key)
         {
             stopwatches[key].Stop();
         }
@@ -83,8 +83,8 @@ namespace Trailblazer.Debug
                 if (stopwatches.ContainsKey(key))
                 {
                     Stopwatch sw = stopwatches[key];
-                    long instanceTime = sw.ElapsedMilliseconds / counts[key];
-                    sb.AppendLine(string.Format("  {0,-15}  {1,8}  {2,12} ms  {3,12} ms", key, counts[key], sw.ElapsedMilliseconds, instanceTime));
+                    float instanceTime = ((float)sw.ElapsedTicks / counts[key]) * 1000f / Stopwatch.Frequency;
+                    sb.AppendLine(string.Format("  {0,-15}  {1,8}  {2,12} ms  {3,12:f5} ms", key, counts[key], sw.ElapsedMilliseconds, instanceTime));
                 }
                 else
                 {
