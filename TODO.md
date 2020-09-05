@@ -25,3 +25,6 @@
 - Jump Point Search inspiration
   - Raw JPS (probably?) won't work with all the complex rules, but might contain useful tricks
   - Update: Might be possible to use JPS with the PathGrid only -- good candidate for TripleAStar
+- Optimistic neighbor calc
+  - Right now every neighbor is immediately calculated in the closed set -- what if we had "optimistic" heuristics and only properly closed it when it got dequeued?
+  - Must make sure that the optimistic heuristic is identical to "empty" cells -- if it's too optimistic we'll still dequeue them

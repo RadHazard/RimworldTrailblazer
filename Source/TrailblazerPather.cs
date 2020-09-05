@@ -77,8 +77,9 @@ namespace Trailblazer
             yield return new CellCostRule_Blueprints(pathfindData);
             yield return new CellCostRule_Buildings(pathfindData);
             yield return new CellCostRule_Doors(pathfindData);
-            yield return new CellCostRule_Pawns(pathfindData);
             yield return new CellCostRule_PathGrid(pathfindData);
+            yield return new CellCostRule_Pawns(pathfindData);
+            yield return new CellCostRule_Walls(pathfindData);
         }
 
         /// <summary>

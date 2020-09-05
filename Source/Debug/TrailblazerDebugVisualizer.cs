@@ -7,7 +7,6 @@ namespace Trailblazer.Debug
 {
     public class TrailblazerDebugVisualizer : MapComponent
     {
-
         internal class ReplayFrame
         {
             internal readonly HashSet<int> cells = new HashSet<int>();
