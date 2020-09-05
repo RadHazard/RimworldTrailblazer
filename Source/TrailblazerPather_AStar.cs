@@ -87,16 +87,23 @@ namespace Trailblazer
         public override PawnPath FindPath()
         {
             ProfilerStart("Total Time");
-            ProfilerStart("Heuristic");
-            int h = Heuristic(startCell);
-            ProfilerEnd("Heuristic");
 
+            // Prime the closed and open sets
             closedSet[startCell] = new CellNode
             {
                 knownCost = 0,
-                heuristicCost = h,
+                heuristicCost = ProfilingHeuristic(startCell),
                 parent = null
             };
+            ProfilerCount("Closed - Total");
+
+            if (pathfindData.CellIsInDestination(startCell))
+            {
+                ProfilerListStats();
+                DebugDrawFinalPath(); //TODO
+                //debugVisualizer.RegisterReplay(debugReplay);
+                return FinalizedPath(startCell);
+            }
             foreach (Direction direction in DirectionUtils.AllDirections)
             {
                 CellRef neighbor = direction.From(startCell);
@@ -111,6 +118,9 @@ namespace Trailblazer
                     int moveCost = ProfilingCalcMoveCost(moveData);
                     int heuristic = ProfilingHeuristic(neighbor);
 
+                    ProfilerCount("Open - New");
+                    ProfilerCount("Open - Total");
+
                     closedSet[neighbor] = new CellNode
                     {
                         knownCost = moveCost,
@@ -121,23 +131,21 @@ namespace Trailblazer
                 }
             }
 
+            // Main A* Loop
             int closedNodes = 0;
             while (openSet.Count > 0)
             {
-                //TODO
                 CellRefNode current = ProfilingDequeue(openSet);
-                //CellRef current = openSet.Dequeue();
                 debugReplay.DrawCell(current);
                 debugReplay.NextFrame();
 
-                ProfilerCount("Closed Nodes");
+                ProfilerCount("Closed - Total");
 
                 // Check if we've reached our goal
                 if (pathfindData.CellIsInDestination(current))
                 {
-                    //TODO
                     ProfilerListStats();
-                    DebugDrawFinalPath();
+                    DebugDrawFinalPath();//TODO
                     //debugVisualizer.RegisterReplay(debugReplay);
                     return FinalizedPath(current);
                 }
@@ -145,16 +153,16 @@ namespace Trailblazer
                 // Check if we hit the searchLimit
                 if (closedNodes > SearchLimit)
                 {
-                    Log.Warning("[Trailblazer] " + pathfindData.traverseParms.pawn + " pathing from " + startCell +
-                        " to " + destCell + " hit search limit of " + SearchLimit + " cells.", false);
-                    //TODO
+                    Log.Warning(string.Format("[Trailblazer] {0} pathing from {1} to {2} hit search limit of {3} cells.",
+                        pathfindData.traverseParms.pawn, startCell, destCell, SearchLimit));
+
                     ProfilerListStats();
-                    DebugDrawFinalPath();
+                    DebugDrawFinalPath(); //TODO
                     //debugVisualizer.RegisterReplay(debugReplay);
                     return PawnPath.NotFound;
                 }
 
-                foreach (Direction direction in DirectionUtils.AllBut(current.enterDirection))
+                foreach (Direction direction in DirectionUtils.AllBut(current.enterDirection.Opposite()))
                 {
                     CellRef neighbor = direction.From(current);
                     if (neighbor.InBounds())
@@ -162,12 +170,14 @@ namespace Trailblazer
                         //debugReplay.DrawLine(current, neighbor);
                         //debugReplay.NextFrame();
 
+                        ProfilerCount("Moves - Total");
                         MoveData moveData = new MoveData(neighbor, direction);
                         if (!ProfilingMoveIsValid(moveData))
                         {
-                            ProfilerCount("Invalid moves");
+                            ProfilerCount("Moves - Invalid");
                             continue;
                         }
+                        ProfilerCount("Moves - Valid");
 
                         int neighborNewCost = closedSet[current].knownCost + ProfilingCalcMoveCost(moveData);
                         if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
@@ -178,24 +188,19 @@ namespace Trailblazer
                                 {
                                     heuristicCost = ProfilingHeuristic(neighbor)
                                 };
-                                ProfilerCount("New Open Nodes");
+                                ProfilerCount("Open - New");
                             }
                             else
                             {
-                                ProfilerCount("Reopened Nodes");
+                                ProfilerCount("Open - Reopened");
                             }
                             closedSet[neighbor].knownCost = neighborNewCost;
                             closedSet[neighbor].parent = current;
 
-                            ProfilerCount("Opened Nodes");
-
-                            //TODO
                             ProfilingEnqueue(openSet, GetNode(neighbor, direction), closedSet[neighbor].TotalCost);
-                            //if (!openSet.EnqueueWithoutDuplicates(neighbor, closedSet[neighbor].TotalCost))
-                            //{
-                            //    openSet.UpdatePriority(neighbor, closedSet[neighbor].TotalCost);
-                            //}
-                            ProfilerMax("Max Open Set", openSet.Count);
+
+                            ProfilerCount("Open - Total"); 
+                            ProfilerMax("Open Set Max", openSet.Count);
                         }
                         else
                         {
@@ -209,11 +214,10 @@ namespace Trailblazer
             Pawn pawn = pathfindData.traverseParms.pawn;
             string currentJob = pawn?.CurJob?.ToString() ?? "null";
             string faction = pawn?.Faction?.ToString() ?? "null";
-            Log.Warning("[Trailblazer] " + pawn + " pathing from " + startCell + " to " + destCell +
-                " ran out of cells to process.\n" + "Job:" + currentJob + "\nFaction: " + faction, false);
-            //TODO
+            Log.Warning(string.Format("[Trailblazer] {0} pathing from {1} to {2} ran out of cells to process.\n" +
+            	"Job: {3}\nFaction: {4}", pawn, startCell, destCell, currentJob, faction));
             ProfilerListStats();
-            DebugDrawFinalPath();
+            DebugDrawFinalPath();//TODO
             //debugVisualizer.RegisterReplay(debugReplay);
             return PawnPath.NotFound;
         }
@@ -258,18 +262,18 @@ namespace Trailblazer
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool ProfilingMoveIsValid(MoveData move)
         {
-            ProfilerStart("MoveIsValid");
+            ProfilerStart("A* Move Valid");
             bool valid = MoveIsValid(move);
-            ProfilerEnd("MoveIsValid");
+            ProfilerEnd("A* Move Valid");
             return valid;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int ProfilingCalcMoveCost(MoveData move)
         {
-            ProfilerStart("CalcMoveCost");
+            ProfilerStart("A* Move Cost");
             int cost = CalcMoveCost(move);
-            ProfilerEnd("CalcMoveCost");
+            ProfilerEnd("A* Move Cost");
             return cost;
         }
 

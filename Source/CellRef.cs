@@ -9,7 +9,7 @@ namespace Trailblazer
     public class CellRef
     {
         private readonly int mapSizeX;
-        private readonly int mapSizeY;
+        private readonly int mapSizeZ;
         private int _index = -1;
         private IntVec3 _cell = IntVec3.Invalid;
 
@@ -19,7 +19,7 @@ namespace Trailblazer
             {
                 if (_index == -1)
                 {
-                    if (_cell.x < mapSizeX && _cell.y < mapSizeY)
+                    if (_cell.x < mapSizeX && _cell.z < mapSizeZ)
                     {
                         _index = CellIndicesUtility.CellToIndex(_cell, mapSizeX);
                     }
@@ -44,23 +44,23 @@ namespace Trailblazer
             }
         }
 
-        public CellRef(int mapSizeX, int mapSizeY, int index)
+        public CellRef(int mapSizeX, int mapSizeZ, int index)
         {
             this.mapSizeX = mapSizeX;
-            this.mapSizeY = mapSizeY;
+            this.mapSizeZ = mapSizeZ;
             _index = index;
         }
 
-        public CellRef(int mapSizeX, int mapSizeY, IntVec3 cell)
+        public CellRef(int mapSizeX, int mapSizeZ, IntVec3 cell)
         {
             this.mapSizeX = mapSizeX;
-            this.mapSizeY = mapSizeY;
+            this.mapSizeZ = mapSizeZ;
             _cell = cell;
         }
 
         public CellRef Relative(IntVec3 delta)
         {
-            return new CellRef(mapSizeX, mapSizeY, _cell + delta);
+            return new CellRef(mapSizeX, mapSizeZ, _cell + delta);
         }
 
         public CellRef Relative(int dx, int dz)
@@ -70,7 +70,7 @@ namespace Trailblazer
 
         public bool InBounds()
         {
-            return Index > 0;
+            return Index > 0 && Index < mapSizeX * mapSizeZ;
         }
 
         public static implicit operator int(CellRef r) => r.Index;
@@ -101,7 +101,7 @@ namespace Trailblazer
 
         public override int GetHashCode()
         {
-            return Gen.HashCombineInt(mapSizeX, Gen.HashCombineInt(Index, mapSizeY));
+            return Gen.HashCombineInt(mapSizeX, Gen.HashCombineInt(Index, mapSizeZ));
         }
 
         public override bool Equals(object obj)
@@ -109,7 +109,7 @@ namespace Trailblazer
             var @ref = obj as CellRef;
             return @ref != null &&
                    mapSizeX == @ref.mapSizeX &&
-                   mapSizeY == @ref.mapSizeY &&
+                   mapSizeZ == @ref.mapSizeZ &&
                    Index == @ref.Index;
         }
     }
@@ -118,17 +118,17 @@ namespace Trailblazer
     {
         public static CellRef GetCellRef(this Map map, int index)
         {
-            return new CellRef(map.Size.x, map.Size.y, index);
+            return new CellRef(map.Size.x, map.Size.z, index);
         }
 
         public static CellRef GetCellRef(this Map map, IntVec3 cell)
         {
-            return new CellRef(map.Size.x, map.Size.y, cell);
+            return new CellRef(map.Size.x, map.Size.z, cell);
         }
 
         public static CellRef GetCellRef(this Map map, int x, int z)
         {
-            return new CellRef(map.Size.x, map.Size.y, new IntVec3(x, 0, z));
+            return new CellRef(map.Size.x, map.Size.z, new IntVec3(x, 0, z));
         }
     }
 }
