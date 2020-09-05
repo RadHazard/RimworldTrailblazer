@@ -140,18 +140,19 @@ namespace Trailblazer
                         //debugReplay.DrawLine(current, neighbor);
                         //debugReplay.NextFrame();
 
-                        ProfilerStart("Calc Valid Move");
                         MoveData moveData = new MoveData(neighbor, direction);
-                        if (!MoveIsValid(moveData))
+                        ProfilerStart("Calc Valid Move");
+                        bool moveIsValid = MoveIsValid(moveData);
+                        ProfilerEnd("Calc Valid Move");
+                        if (!moveIsValid)
                         {
                             ProfilerCount("Invalid moves");
                             continue;
                         }
-                        ProfilerEnd("Calc Valid Move");
 
                         ProfilerStart("Calc Move Cost");
                         int neighborNewCost = closedSet[current].knownCost + CalcMoveCost(moveData);
-                        ProfilerStart("Calc Move Cost");
+                        ProfilerEnd("Calc Move Cost");
 
                         if (!closedSet.ContainsKey(neighbor) || closedSet[neighbor].knownCost > neighborNewCost)
                         {

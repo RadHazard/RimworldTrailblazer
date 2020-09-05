@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using Verse;
 
 namespace Trailblazer.Debug
 {
@@ -69,9 +70,13 @@ namespace Trailblazer.Debug
 
         public string GetSummary()
         {
-            foreach (Stopwatch s in stopwatches.Values)
+            foreach (var sw in stopwatches)
             {
-                s.Stop();
+                if (sw.Value.IsRunning)
+                {
+                    Log.ErrorOnce(string.Format("{0} stopwatch was not stopped properly", sw.Key), sw.Key.GetHashCode());
+                    sw.Value.Stop();
+                }
             }
 
             StringBuilder sb = new StringBuilder("Performance tracker results:").AppendLine();

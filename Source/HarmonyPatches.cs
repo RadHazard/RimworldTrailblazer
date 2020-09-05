@@ -25,7 +25,7 @@ namespace Trailblazer
     {
         static bool Prefix(IntVec3 start, LocalTargetInfo dest, TraverseParms traverseParms, PathEndMode peMode, Map ___map, ref PawnPath __result)
         {
-            if (TrailblazerSettings.pathfinder == PathfinderEnum.Vanilla)
+            if (LoadedModManager.GetMod<TrailblazerSettingController>().GetSettings<TrailblazerSettings>().pathfinder == PathfinderEnum.Vanilla)
             {
                 return true;
             }

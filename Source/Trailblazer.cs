@@ -51,7 +51,7 @@ namespace Trailblazer
 
             PathfindData pathfindData = new PathfindData(map, map.GetCellRef(start), dest, traverseParms, peMode);
             TrailblazerPather pather;
-            switch (TrailblazerSettings.pathfinder)
+            switch (LoadedModManager.GetMod<TrailblazerSettingController>().GetSettings<TrailblazerSettings>().pathfinder)
             {
                 case PathfinderEnum.AStar:
                     pather = new TrailblazerPather_AStar(pathfindData);

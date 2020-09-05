@@ -7,7 +7,6 @@ namespace Trailblazer
 
     public class TrailblazerSettingController : Mod
     {
-
         private struct RadioButton<T>
         {
             public readonly string labelKey;
@@ -25,7 +24,12 @@ namespace Trailblazer
             }
         }
 
-        public TrailblazerSettingController(ModContentPack content) : base(content) { }
+        public readonly TrailblazerSettings settings;
+
+        public TrailblazerSettingController(ModContentPack content) : base(content)
+        {
+            settings = GetSettings<TrailblazerSettings>();
+        }
 
         public override void DoSettingsWindowContents(Rect inRect)
         {
@@ -41,7 +45,7 @@ namespace Trailblazer
                 new RadioButton<PathfinderEnum>("TrailblazerHAStar", PathfinderEnum.HAStar, "TrailblazerHAStarDesc"),
                 new RadioButton<PathfinderEnum>("TrailblazerTwinAStar", PathfinderEnum.TwinAStar, "TrailblazerTwinAStarDesc")
             };
-            AddRadioButtons(listingStandard, radioButtons, ref TrailblazerSettings.pathfinder);
+            AddRadioButtons(listingStandard, radioButtons, ref settings.pathfinder);
 
             listingStandard.End();
             base.DoSettingsWindowContents(inRect);
@@ -65,7 +69,7 @@ namespace Trailblazer
 
     public class TrailblazerSettings : ModSettings
     {
-        public static PathfinderEnum pathfinder;
+        public PathfinderEnum pathfinder;
 
         public override void ExposeData()
         {

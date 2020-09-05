@@ -150,7 +150,7 @@ namespace Trailblazer
                         }
                         else
                         {
-                            ProfilerEnd("RRA Rescanned");
+                            ProfilerCount("RRA Rescanned");
                         }
                     }
                 }

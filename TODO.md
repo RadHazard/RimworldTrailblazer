@@ -6,14 +6,13 @@
 - Cache passibility/cost for cells?
   - At the moment, both seem to be only minor contributors to the full pathfinding cost
   - Using the faster priority queue means they're relatively much more costly now
+  - Caching doesn't seem to help much, if at all -- reevaluate once other optimizations have been done
 - Expand debug visualizations
   - Show costs for individual rules
   - Pathfinder-specific visualization
   - Add settings to the setting panel (or make a debug setting panel)
 - Profiling
   - Profile all the rules
-  - Add detailed profiler to pathfinders
-- Figure out why settings don't save
 - Fix TwinAStar sometimes being unable to reach cells (door passability check?)
 
 # Ideas
@@ -25,6 +24,4 @@
   - Maybe calculate every edge cell instead of just the corners, since it's precomputed?
 - Jump Point Search inspiration
   - Raw JPS (probably?) won't work with all the complex rules, but might contain useful tricks
-- PathfindGrid
-  - If we start caching pathfinding data, it may be worth it to create a PathfindGrid class to act as an intermediary between pathfinders and rules
-  - DONE -- however, it seems to have minimal speedups
+  - Update: Might be possible to use JPS with the PathGrid only -- good candidate for TripleAStar
