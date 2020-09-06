@@ -93,7 +93,8 @@
     <Compile Include="Rules\CellCostRule.cs" />
     <Compile Include="Rules\CellPassabilityRule.cs" />
     <Compile Include="Rules\Rule.cs" />
-    <Compile Include="Debug\RuleDebug.cs" />
+    <Compile Include="Debug\CostRuleDebugActions.cs" />
+    <Compile Include="Debug\PassRuleDebugActions.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

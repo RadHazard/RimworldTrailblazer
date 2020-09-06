@@ -8,7 +8,6 @@
   - Using the faster priority queue means they're relatively much more costly now
   - Caching doesn't seem to help much, if at all -- reevaluate once other optimizations have been done
 - Expand debug visualizations
-  - Show costs for individual rules
   - Pathfinder-specific visualization
   - Add settings to the setting panel (or make a debug setting panel)
 - Profiling
